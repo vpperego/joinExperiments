@@ -14,8 +14,8 @@ object kafkaConsumer extends App{
     .option("subscribe", "fooTopic")
     .load()
 
-  df.selectExpr("CAST(key AS STRING)", "CAST(value AS STRING)")
-    .as[(String, String)]
-    .select("*")
-
+  df.selectExpr("CAST(value AS STRING)")
+    .as[String]
+    .show(20)
+ 
 }
