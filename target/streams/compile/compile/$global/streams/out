@@ -1,0 +1,13 @@
+[0m[[0m[31merror[0m] [0m[0m/home/vinicius/IdeaProjects/joinExperiments/src/main/scala/generate.scala:1:1: expected class or object definition[0m
+[0m[[0m[31merror[0m] [0m[0m#!/bin/sh[0m
+[0m[[0m[31merror[0m] [0m[0m^[0m
+[0m[[0m[31merror[0m] [0m[0m/home/vinicius/IdeaProjects/joinExperiments/src/main/scala/generate.scala:2:1: expected class or object definition[0m
+[0m[[0m[31merror[0m] [0m[0mexec scala "$0" "$@"[0m
+[0m[[0m[31merror[0m] [0m[0m^[0m
+[0m[[0m[31merror[0m] [0m[0m/home/vinicius/IdeaProjects/joinExperiments/src/main/scala/generate.scala:3:1: expected class or object definition[0m
+[0m[[0m[31merror[0m] [0m[0m!#[0m
+[0m[[0m[31merror[0m] [0m[0m^[0m
+[0m[[0m[31merror[0m] [0m[0m/home/vinicius/IdeaProjects/joinExperiments/src/main/scala/generate.scala:26:1: expected class or object definition[0m
+[0m[[0m[31merror[0m] [0m[0mHelloWorld.main(args)[0m
+[0m[[0m[31merror[0m] [0m[0m^[0m
+[0m[[0m[31merror[0m] [0m[0mfour errors found[0m
