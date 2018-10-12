@@ -1,23 +1,18 @@
-import org.apache.spark.sql.SparkSession
+import startup.spark
 
 object kafkaProducer extends App{
-  val spark = SparkSession
-    .builder
-    .appName("Kafka Producer")
-    .getOrCreate
+  import spark.implicits._
 
   var df = spark
     .read
-    .csv("file:///home/vinicius/IdeaProjects/joinExperiments/resources/relA.csv");
-  df.printSchema;
+  .csv("hdfs:/user/vinicius/relA.csv")
 
-  df = df.withColumnRenamed("_c0","value");
+  df = df.withColumnRenamed("_c0","value")
   df.show(20)
   df.selectExpr("CAST(value AS STRING)")
     .write
     .format("kafka")
-    .option("kafka.bootstrap.servers", "dbis-expsrv3:9092,dbis-expsrv8:9092,dbis-expsrv9:9092")
+    .option("kafka.bootstrap.servers", "dbis-expsrv1:9092")
     .option("topic", "fooTopic")
-    .save()
-
+    .save
 }
