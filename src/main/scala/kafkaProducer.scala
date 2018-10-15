@@ -1,18 +1,20 @@
-import startup.spark
+import startup.{config, spark}
 
-object kafkaProducer extends App{
+object kafkaProducer {
   import spark.implicits._
 
-  var df = spark
-    .read
-  .csv("hdfs:/user/vinicius/relA.csv")
+  def run: Unit = {
+    var df = spark
+      .read
+      .csv(config("relASource"))
 
-  df = df.withColumnRenamed("_c0","value")
-  df.show(20)
-  df.selectExpr("CAST(value AS STRING)")
-    .write
-    .format("kafka")
-    .option("kafka.bootstrap.servers", "dbis-expsrv1:9092")
-    .option("topic", "fooTopic")
-    .save
+    df = df.withColumnRenamed("_c0", "value")
+    df.show(20)
+    df.selectExpr("CAST(value AS STRING)")
+      .write
+      .format("kafka")
+      .option("kafka.bootstrap.servers", config("kafkaServer"))
+      .option("topic", config("kafkaTopic"))
+      .save
+  }
 }
