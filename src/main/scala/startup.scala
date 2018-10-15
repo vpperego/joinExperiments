@@ -9,7 +9,6 @@ import org.apache.spark.sql.streaming.StreamingQueryListener
 import org.apache.spark.sql.streaming.StreamingQueryListener.{QueryProgressEvent, QueryStartedEvent, QueryTerminatedEvent}
 
 object startup extends App {
-  println("\n\n\nArgs 0 =" + args(0) + "\n\n\n")
 
   val spark = SparkSession
     .builder
@@ -26,25 +25,23 @@ object startup extends App {
     }
 
     override def onQueryProgress(queryProgress: QueryProgressEvent): Unit = {
-      //      val conf = new Configuration()
-      //      val fs = FileSystem.get(conf)
-      //      val output = fs.create(
-      //        new Path("hdfs:/user/vinicius/logs/" + queryProgress.progress.batchId + ".json"))
-      //      val writer = new PrintWriter(output)
-      //      writer.write(queryProgress.progress.json)
-      //      writer.close()
+      val conf = new Configuration()
+      val fs = FileSystem.get(conf)
+      val output = fs.create(
+        new Path("hdfs:/user/vinicius/logs/" + queryProgress.progress.batchId + ".json"))
+
+      val writer = new PrintWriter(output)
+      writer.write(queryProgress.progress.json)
+      writer.close()
 
     }
   })
 
 
-  val config = io
-    .Source
-    .fromFile(args(1))
-    .mkString
-    .split("\n")
+  val config = spark.sparkContext.textFile(args(1))
     .map(_.split("\t"))
     .map(arr => arr(0) -> arr(1))
+    .collect
     .toMap
 
 

@@ -39,6 +39,26 @@ object innerJoin {
 
 
   def kafkaJoin: Unit = {
+    var relA = spark
+      .read
+      .format("kafka")
+      .option("kafka.bootstrap.servers", config("kafkaServerA"))
+      .option("subscribe", config("kafkaTopicA"))
+      .load
+      .selectExpr("CAST(value AS STRING)")
+      .as[String]
+
+    var relB = spark
+      .read
+      .format("kafka")
+      .option("kafka.bootstrap.servers", config("kafkaServerB"))
+      .option("subscribe", config("kafkaTopicB"))
+      .load
+      .selectExpr("CAST(value AS STRING)")
+      .as[String]
+
+    relA
+      .join(relB, "")
 
   }
 

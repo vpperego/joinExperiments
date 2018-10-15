@@ -6,7 +6,7 @@ object kafkaProducer {
   def run: Unit = {
     var df = spark
       .read
-      .csv(config("relASource"))
+      .csv(config("relSource"))
 
     df = df.withColumnRenamed("_c0", "value")
     df.show(20)
