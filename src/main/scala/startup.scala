@@ -12,8 +12,13 @@ object startup extends App {
 
   val spark = SparkSession
     .builder
-    .appName(args(0))
+    .appName(_appName)
     .getOrCreate
+  val config = spark.sparkContext.textFile(args(1))
+    .map(_.split("[\t ]+"))
+    .map(arr => arr(0) -> arr(1))
+    .collect
+    .toMap
 
 
   spark.streams.addListener(new StreamingQueryListener() {
@@ -27,8 +32,11 @@ object startup extends App {
     override def onQueryProgress(queryProgress: QueryProgressEvent): Unit = {
       val conf = new Configuration()
       val fs = FileSystem.get(conf)
+      fs.mkdirs(
+        new Path("hdfs:/user/vinicius/logs/" + _appName))
       val output = fs.create(
-        new Path("hdfs:/user/vinicius/logs/" + queryProgress.progress.batchId + ".json"))
+        new Path("hdfs:/user/vinicius/logs/" +
+          _appName + "/" + queryProgress.progress.batchId + ".json"))
 
       val writer = new PrintWriter(output)
       writer.write(queryProgress.progress.json)
@@ -36,13 +44,7 @@ object startup extends App {
 
     }
   })
-
-
-  val config = spark.sparkContext.textFile(args(1))
-    .map(_.split("\t"))
-    .map(arr => arr(0) -> arr(1))
-    .collect
-    .toMap
+  var _appName = args(0)
 
 
   config("class") match {
