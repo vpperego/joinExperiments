@@ -1,4 +1,4 @@
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.types.{IntegerType, StructField, StructType}
 import startup.{config, spark}
 
 object innerJoin {
@@ -40,26 +40,39 @@ object innerJoin {
 
   def kafkaJoin: Unit = {
     var relA = spark
-      .read
+      .readStream
       .format("kafka")
+      .option("failOnDataLoss", "false")
       .option("kafka.bootstrap.servers", config("kafkaServerA"))
       .option("subscribe", config("kafkaTopicA"))
+      .option("startingOffsets", "earliest")
       .load
       .selectExpr("CAST(value AS STRING)")
       .as[String]
+
 
     var relB = spark
-      .read
+      .readStream
       .format("kafka")
+      .option("failOnDataLoss", "false")
       .option("kafka.bootstrap.servers", config("kafkaServerB"))
       .option("subscribe", config("kafkaTopicB"))
+      .option("startingOffsets", "earliest")
       .load
       .selectExpr("CAST(value AS STRING)")
       .as[String]
+      .withColumnRenamed("value", "_value")
 
     relA
-      .join(relB, "")
+      .join(relB, $"_value" === $"value")
+      .writeStream
+      .format("kafka")
 
+      .option("kafka.bootstrap.servers", config("kafkaServerOutput"))
+      .option("topic", config("kafkaTopicOutput"))
+      .option("checkpointLocation", config("checkpointPath"))
+      .start
+      .awaitTermination
   }
 
 }
