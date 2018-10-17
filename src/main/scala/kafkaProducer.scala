@@ -1,10 +1,13 @@
+import org.apache.spark.sql.types.{IntegerType, StructType}
 import startup.{config, spark}
 
 object kafkaProducer {
+  val userSchema = new StructType().add("keyB", IntegerType)
 
   def run: Unit = {
     var df = spark
       .read
+      .schema(userSchema)
       .csv(config("relSource"))
 
     df

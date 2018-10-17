@@ -1,10 +1,11 @@
-import org.apache.spark.sql.types.{IntegerType, StructField, StructType}
+import org.apache.avro.generic.GenericData.StringType
+import org.apache.spark.sql.types.{IntegerType, StringType, StructType}
 import startup.{config, spark}
 import org.apache.spark.sql.functions._
 
 object innerJoin {
-  val userSchema = new StructType().add("keyA", "integer")
-  val userSchema2 = new StructType().add("keyB", "integer")
+  val userSchema = new StructType().add("keyA", IntegerType)
+  val userSchema2 = new StructType().add("keyB", IntegerType)
 
   def run: Unit = {
     config("joinType") match {
@@ -74,7 +75,7 @@ object innerJoin {
       .option("topic", config("kafkaTopicOutput"))
       .option("checkpointLocation", config("checkpointPath"))
       .start
-      .awaitTermination
+      .awaitTermination(30000)
   }
 
 }
