@@ -1,3 +1,5 @@
+import innerJoin.userSchema
+import org.apache.spark.sql.functions.from_json
 import startup.{config, spark}
 
 object kafkaConsumer {
@@ -12,7 +14,8 @@ object kafkaConsumer {
     .load()
 
     df.selectExpr("CAST(value AS STRING)")
-    .as[String]
+      .as[(String)]
+      .select(from_json($"value", userSchema).as("data"))
     .show(20)
   }
 

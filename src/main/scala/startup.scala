@@ -9,6 +9,7 @@ import org.apache.spark.sql.streaming.StreamingQueryListener
 import org.apache.spark.sql.streaming.StreamingQueryListener.{QueryProgressEvent, QueryStartedEvent, QueryTerminatedEvent}
 
 object startup extends App {
+  var _appName = args(0)
 
   val spark = SparkSession
     .builder
@@ -41,10 +42,8 @@ object startup extends App {
       val writer = new PrintWriter(output)
       writer.write(queryProgress.progress.json)
       writer.close()
-
     }
   })
-  var _appName = args(0)
 
 
   config("class") match {

@@ -1,7 +1,10 @@
 import org.apache.spark.sql.types.{IntegerType, StructField, StructType}
 import startup.{config, spark}
+import org.apache.spark.sql.functions._
 
 object innerJoin {
+  val userSchema = new StructType().add("keyA", "integer")
+  val userSchema2 = new StructType().add("keyB", "integer")
 
   def run: Unit = {
     config("joinType") match {
@@ -13,8 +16,6 @@ object innerJoin {
   import spark.implicits._
 
   def fileJoin: Unit = {
-    val userSchema = new StructType().add("keyA", "integer")
-    val userSchema2 = new StructType().add("keyB", "integer")
 
     var stream1 = spark
       .readStream
@@ -48,8 +49,9 @@ object innerJoin {
       .option("startingOffsets", "earliest")
       .load
       .selectExpr("CAST(value AS STRING)")
-      .as[String]
-
+      .as[(String)]
+      .select(from_json($"value", userSchema).as("data"))
+      .select($"data.keyA")
 
     var relB = spark
       .readStream
@@ -60,14 +62,14 @@ object innerJoin {
       .option("startingOffsets", "earliest")
       .load
       .selectExpr("CAST(value AS STRING)")
-      .as[String]
-      .withColumnRenamed("value", "_value")
+      .as[(String)]
+      .select(from_json($"value", userSchema2).as("data2"))
+      .select($"data2.keyB")
 
-    relA
-      .join(relB, $"_value" === $"value")
+    relA.join(relB, $"keyA" === $"keyB")
+      .selectExpr("to_json(struct(*)) AS value")
       .writeStream
       .format("kafka")
-
       .option("kafka.bootstrap.servers", config("kafkaServerOutput"))
       .option("topic", config("kafkaTopicOutput"))
       .option("checkpointLocation", config("checkpointPath"))
