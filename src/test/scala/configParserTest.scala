@@ -8,16 +8,15 @@ class configParserTest extends FunSuite {
   test("simpe parser") {
     var sampleMap = new mutable.HashMap[String, String]()
 
-
     sampleMap.put("class", "innerJoin")
     sampleMap.put("joinType", "kafkaJoin")
-    sampleMap.put("kafkaServer", "Adbis-expsrv1:9092")
     sampleMap.put("kafkaServerA", "dbis-expsrv1:9092")
-
     sampleMap.put("kafkaTopicA", "relA")
     sampleMap.put("kafkaServerB", "dbis-expsrv1:9092")
     sampleMap.put("kafkaTopicB", "relB")
     sampleMap.put("kafkaServerOutput", "dbis-expsrv1:9092")
+    sampleMap.put("kafkaTopicOutput", "joinTestOutput")
+    sampleMap.put("checkpointPath", "hdfs:/user/vinicius/checkpoint")
 
     var generatedMap = Source
       .fromFile("/home/vinicius/IdeaProjects/joinExperiments/resources/config/kafka-inner-join.conf")
