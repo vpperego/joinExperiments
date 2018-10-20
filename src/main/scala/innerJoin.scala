@@ -48,6 +48,7 @@ object innerJoin {
       .option("kafka.bootstrap.servers", config("kafkaServerA"))
       .option("subscribe", config("kafkaTopicA"))
       .option("startingOffsets", "earliest")
+      //      .option("maxOffsetsPerTrigger", "1500")
       .load
       .selectExpr("CAST(value AS STRING)")
       .as[(String)]
@@ -61,6 +62,7 @@ object innerJoin {
       .option("kafka.bootstrap.servers", config("kafkaServerB"))
       .option("subscribe", config("kafkaTopicB"))
       .option("startingOffsets", "earliest")
+      //      .option("maxOffsetsPerTrigger", "1500")
       .load
       .selectExpr("CAST(value AS STRING)")
       .as[(String)]
@@ -75,7 +77,7 @@ object innerJoin {
       .option("topic", config("kafkaTopicOutput"))
       .option("checkpointLocation", config("checkpointPath"))
       .start
-      .awaitTermination(30000)
+      .awaitTermination(60000)
   }
 
 }

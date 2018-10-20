@@ -8,6 +8,7 @@ import org.apache.spark.sql.streaming.StreamingQueryListener.{QueryProgressEvent
 
 object startup extends App {
   var _appName = args(0)
+  val LOG_PATH = "hdfs:/user/vinicius/logs/" + _appName
 
   val spark = SparkSession
     .builder
@@ -32,10 +33,10 @@ object startup extends App {
       val conf = new Configuration()
       val fs = FileSystem.get(conf)
       fs.mkdirs(
-        new Path("hdfs:/user/vinicius/logs/" + _appName))
+        new Path(LOG_PATH))
       val output = fs.create(
-        new Path("hdfs:/user/vinicius/logs/" +
-          _appName + "/" + queryProgress.progress.batchId + ".json"))
+        new Path(LOG_PATH + "/"
+          + queryProgress.progress.batchId + ".json"))
 
       val writer = new PrintWriter(output)
       writer.write(queryProgress.progress.json)
@@ -45,7 +46,9 @@ object startup extends App {
 
 
   config("class") match {
-    case "innerJoin" => innerJoin.run
+    case "innerJoin" =>
+      spark.conf.set("spark.sql.forceCrossJoin", config("forceCrossJoin"))
+      innerJoin.run
     case "kafkaConsumer" => kafkaConsumer.run
     case "kafkaProducer" => kafkaProducer.run
     case _ => None
