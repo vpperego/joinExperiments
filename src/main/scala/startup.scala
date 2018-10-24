@@ -9,7 +9,6 @@ import org.apache.spark.sql.streaming.StreamingQueryListener.{QueryProgressEvent
 object startup extends App {
   var _appName = args(0)
   val LOG_PATH = "hdfs:/user/vinicius/logs/" + _appName
-
   val spark = SparkSession
     .builder
     .appName(_appName)
@@ -22,24 +21,29 @@ object startup extends App {
 
 
   spark.streams.addListener(new StreamingQueryListener() {
-    override def onQueryStarted(queryStarted: QueryStartedEvent): Unit = {
+    var start: Long = 0
 
+    override def onQueryStarted(queryStarted: QueryStartedEvent): Unit = {
+      start = System.currentTimeMillis()
     }
 
     override def onQueryTerminated(queryTerminated: QueryTerminatedEvent): Unit = {
     }
 
     override def onQueryProgress(queryProgress: QueryProgressEvent): Unit = {
+      var end = System.currentTimeMillis()
       val conf = new Configuration()
       val fs = FileSystem.get(conf)
       fs.mkdirs(
         new Path(LOG_PATH))
       val output = fs.create(
         new Path(LOG_PATH + "/"
-          + queryProgress.progress.batchId + ".json"))
-
+          + queryProgress.progress.batchId + ".json")
+      )
       val writer = new PrintWriter(output)
-      writer.write(queryProgress.progress.json)
+      writer.write(queryProgress.progress.json +
+        "\n Total time: " + (end - start).toString
+      )
       writer.close()
     }
   })
