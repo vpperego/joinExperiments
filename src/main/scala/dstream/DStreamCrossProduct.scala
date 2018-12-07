@@ -34,7 +34,7 @@ object DStreamCrossProduct {
     Subscribe[String, String](kafkaTopicA, kafkaParams)
   ).map(_.value.toInt)
 
-//  val relB = KafkaUtils.createDirectStream[String, String](
+//  val relBStream = KafkaUtils.createDirectStream[String, String](
 //    ssc,
 //    PreferConsistent,
 //    Subscribe[String, String](kafkaTopicB, kafkaParams)
@@ -49,7 +49,7 @@ object DStreamCrossProduct {
 
 
 //  var windowedStream1: DStream[Int] = relA.window(Seconds(3),)
-//  var windowedStream2: DStream[Int] = relB.window(Minutes(1))
+//  var windowedStream2: DStream[Int] = relBStream.window(Minutes(1))
 //  var windowedStream3: DStream[Int] = relC.window(Minutes(1))
 //
 //  var res  = windowedStream1.transformWith(windowedStream2,

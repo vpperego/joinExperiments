@@ -45,7 +45,6 @@ object DStreamInput{
      .transform{newRdd =>
        storeRddA = storeRddA.union(newRdd)
        storeRddA.cache
-
      }
 
    // DO SOME JOIN OPERATION
