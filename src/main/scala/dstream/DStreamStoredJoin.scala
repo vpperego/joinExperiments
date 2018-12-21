@@ -25,11 +25,9 @@ object DStreamStoredJoin {
 
 
   val relAStream = createKafkaStream (Array(config("kafkaTopicA")),"banana")
-    .map(kafkaRow => kafkaRow._2.toInt)
+
   val relBStream = createKafkaStream (Array(config("kafkaTopicB")),"apple")
-    .map(kafkaRow => kafkaRow._2.toInt)
-  val relCStream = createKafkaStream (Array(config("kafkaTopicC")),"grape")
-    .map(kafkaRow => kafkaRow._2.toInt)
+   val relCStream = createKafkaStream (Array(config("kafkaTopicC")),"grape")
 
   val storeA = new Storage(sc,ssc,"RelA")
   storeA.store(relAStream)
@@ -42,8 +40,8 @@ object DStreamStoredJoin {
 
 
 
-  var storeBJoin: DStream[(Int, Int)] = storeB.join(relAStream)
-  var storeAJoin: DStream[(Int, Int)] = storeA.join(relBStream)
+  var storeBJoin: DStream[(Int, Int)] = storeB.join(relAStream,streamLeft = true)
+  var storeAJoin: DStream[(Int, Int)] = storeA.join(relBStream,streamLeft = false)
 
 
   val intermediateResult: DStream[(Int, Int)] = storeAJoin
@@ -53,12 +51,12 @@ object DStreamStoredJoin {
   val intermediateStore = new Storage(sc,ssc,"Intermediate Result")
   intermediateStore.storeIntermediateResult(intermediateResult)
 
-  var storeIntermediateJoin: DStream[(Int, (Int, Int))] = intermediateStore.intermediateStoreJoin(relCStream)
+  var storeIntermediateJoin: DStream[(Int, Int, Int)] = intermediateStore.intermediateStoreJoin(relCStream,streamLeft = false)
 
 
-  var storeCJoin: DStream[(Int, (Int, Int))] = storeC.joinWithIntermediateResult(intermediateResult)
+  var storeCJoin: DStream[(Int, Int, Int)] = storeC.joinWithIntermediateResult(intermediateResult,streamLeft = true)
 
-  var output: DStream[(Int, (Int, Int))] = storeIntermediateJoin.union(storeCJoin);
+  var output: DStream[(Int, Int, Int)] = storeIntermediateJoin.union(storeCJoin);
 
   output
       .print(1000)
@@ -85,7 +83,7 @@ object DStreamStoredJoin {
   ssc.start
   ssc.awaitTermination
 
-  private def createKafkaStream (topicName: Array[String],groupName: String): DStream[(String,String)] ={
+  private def createKafkaStream (topicName: Array[String],groupName: String): DStream[Int] ={
 
     val kafkaParams = Map[String, Object](
       "bootstrap.servers" -> config("kafkaServer"),
@@ -100,7 +98,8 @@ object DStreamStoredJoin {
       ssc,
       PreferConsistent,
       Subscribe[String, String](topicName, kafkaParams)
-    )      .map(row => (row.key, row.value))
+    )      .map(row => row.value.toInt)
+//      .repartition(8)
   }
 
   private def join(leftRel: DStream[Int], rightRel: DStream[Int]): DStream[(Int,Int)] = {
