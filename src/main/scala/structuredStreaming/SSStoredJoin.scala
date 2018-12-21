@@ -17,22 +17,22 @@ object SSStoredJoin {
 
   val relASchema = ScalaReflection.schemaFor[Course].dataType.asInstanceOf[StructType]
 
-//  var relA: Dataset[Int] = createStructuredStreamingSource(config("kafkaTopicA"),config("kafkaServer"))
+//  var intDs: Dataset[Int] = createStructuredStreamingSource(config("kafkaTopicA"),config("kafkaServer"))
   var relB = createStructuredStreamingSource(config("kafkaTopicB"),config("kafkaServer"))
 //  var relC = createStructuredStreamingSource(config("kafkaTopicC"),config("kafkaServer"))
 
-//  val storeA = new Storage(spark,"relA")
+//  val storeA = new Storage(spark,"intDs")
   val storeB = new Storage(spark,"relB")
 
   while(true){
-//    storeA.store(relA,2000)
+//    storeA.store(intDs,2000)
     storeB.store(relB,6000)
 
 //    storeA.join(relB)
-//    storeB.join(relA)
+//    storeB.join(intDs)
 
 //    var sA = storeA.join(relB)
-//    var sB = storeB.join(relA)
+//    var sB = storeB.join(intDs)
 //
 //    var result = sA.union(sB)
 //
