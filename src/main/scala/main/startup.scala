@@ -15,8 +15,7 @@ object startup extends App {
 //    .config("spark.metrics.conf.*.sink.graphite.class", "org.apache.spark.metrics.sink.GraphiteSink")
 //  .config("spark.metrics.conf.*.sink.graphite.host", "192.168.2.9")
 //     .config("spark.metrics.conf.*.sink.graphite.port", "2003")
-
-     .appName(_appName)
+    .appName(_appName)
     .getOrCreate
   val config = spark.sparkContext.textFile(args(1))
     .map(_.split("[\t ]+"))
@@ -29,11 +28,9 @@ object startup extends App {
       spark.conf.set("spark.sql.forceCrossJoin", config("forceCrossJoin"))
       innerJoin.run
     case "kafkaConsumer" => kafkaConsumer.run
-    case "kafkaProducer" => kafkaProducer.run
     case "batchJoin" => batchJoin.run
     case "DStreamStoredJoin" => DStreamStoredJoin
     case "SSStoredJoin" => SSStoredJoin
-
     case _ => None
   }
 
