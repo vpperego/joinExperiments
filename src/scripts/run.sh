@@ -8,6 +8,7 @@ rm -fr resources/output/
 
 sbt package
 mkdir /tmp/spark-events
+mkdir /tmp/spark-log
 
 
 rm -fr resources/checkpoints/

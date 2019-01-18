@@ -1,9 +1,9 @@
 package main
 
 
-import dstream.DStreamStoredJoin
- import org.apache.spark.sql.SparkSession
- import structuredStreaming._
+import dstream.{DStreamStoredJoin, TwoStreamsStoredJoin}
+import org.apache.spark.sql.SparkSession
+import structuredStreaming._
 
 
 object startup extends App {
@@ -11,7 +11,7 @@ object startup extends App {
    val spark = SparkSession
     .builder
     .config("spark.streaming.kafka.consumer.cache.enabled","false")
-     .config("spark.streaming.backpressure.enabled","true")
+//     .config("spark.streaming.backpressure.enabled","true")
 //    .config("spark.metrics.conf.*.sink.graphite.class", "org.apache.spark.metrics.sink.GraphiteSink")
 //  .config("spark.metrics.conf.*.sink.graphite.host", "192.168.2.9")
 //     .config("spark.metrics.conf.*.sink.graphite.port", "2003")
@@ -30,6 +30,7 @@ object startup extends App {
     case "kafkaConsumer" => kafkaConsumer.run
     case "batchJoin" => batchJoin.run
     case "DStreamStoredJoin" => DStreamStoredJoin
+    case "TwoStreamsStoredJoin" => TwoStreamsStoredJoin
     case "SSStoredJoin" => SSStoredJoin
     case _ => None
   }

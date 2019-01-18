@@ -9,36 +9,41 @@ class Storage (sc:SparkContext, ssc: StreamingContext, storeName: String) {
   private var storeRdd: RDD[Int] = sc.emptyRDD
    private var intermediateStore: RDD[(Int,Int)] = sc.emptyRDD
 
-   def store (source: DStream[Int]): Unit = {
-     source.foreachRDD{ streamedRdd =>
+   def store (source: DStream[Int]): DStream[Int] = {
+     source.transform{ streamedRdd =>
        if(!streamedRdd.isEmpty()){
-//         var oldStore = storeRdd
+         println(s"Store $storeName (size ${storeRdd.count}) receiving stream (size ${streamedRdd.count})")
          storeRdd = storeRdd.union(streamedRdd)
-//           .repartition(8)
            .setName(storeName)
-         println("Size of "+storeName + " = " + storeRdd.count())
          storeRdd.cache()
-//         oldStore.unpersist()
+         streamedRdd
+       }else{
+         streamedRdd
        }
-     }
+       }
   }
 
-  def storeIntermediateResult (source: DStream[(Int,Int)]): Unit = {
-    source.foreachRDD{ intermediateStreamedRdd =>
-      if(!intermediateStreamedRdd.isEmpty()){
+  def storeIntermediateResult (source: DStream[(Int,Int)]): DStream[(Int,Int)] = {
+    source.transform{ intermediateStreamedRdd =>
+      if(!intermediateStreamedRdd.isEmpty){
+        println(s"Store $storeName (size ${intermediateStore.count}) receiving stream (size ${intermediateStreamedRdd.count})")
         intermediateStore = intermediateStore.union(intermediateStreamedRdd)
-//          .repartition(8)
           .setName(storeName)
         intermediateStore.cache()
-       }
-    }
+        intermediateStreamedRdd
+      }else{
+        intermediateStreamedRdd
+      }
+     }
   }
 
   def join(rightRel: DStream[Int],streamLeft: Boolean,joinCondition: ((Int,Int)) => Boolean): DStream[(Int,Int)] = {
     rightRel
       .transform{ streamRdd =>
-
-      if(streamLeft){
+        if(!streamRdd.isEmpty()) {
+          println(s"Join between $storeName (size ${storeRdd.count}) and stream (size ${streamRdd.count})")
+        }
+        if(streamLeft){
         streamRdd.cartesian(storeRdd).filter{ case (a,b) => a < b}
 
       }else{
@@ -49,6 +54,10 @@ class Storage (sc:SparkContext, ssc: StreamingContext, storeName: String) {
 
   def intermediateStoreJoin(rightRel: DStream[Int],streamLeft: Boolean, joinCondition: ((Int,Int,Int)) => Boolean): DStream[(Int,Int, Int)] = {
     rightRel.transform{ streamRdd =>
+      if(!streamRdd.isEmpty()) {
+        println(s"Join between $storeName (size ${intermediateStore.count}) and stream (size ${streamRdd.count})")
+      }
+
       if(streamLeft){
         streamRdd.cartesian(intermediateStore).map{case (a,(b,c))=> (a,b,c) }.filter{ case (a,b,c) => b< c}
 
@@ -59,8 +68,12 @@ class Storage (sc:SparkContext, ssc: StreamingContext, storeName: String) {
 
   }
 
-  def joinWithIntermediateResult(rightRel: DStream[(Int,Int)],streamLeft: Boolean,joinCondition: ((Int,Int,Int)) => Boolean ): DStream[(Int,Int, Int)] = {
+  def joinWithIntermediateResult(rightRel: DStream[(Int,Int)],streamLeft: Boolean,joinCondition: ((Int,Int,Int)) => Boolean )
+  : DStream[(Int,Int,Int)] = {
     rightRel.transform{ streamRdd =>
+      if(!streamRdd.isEmpty()) {
+        println(s"Join between $storeName (size ${storeRdd.count}) and stream (size ${streamRdd.count})")
+      }
       if(streamLeft){
         streamRdd.cartesian(storeRdd).map{case ((a,b),c)=> (a,b,c) }.filter{ case (a,b,c) => b< c}
       }else{
