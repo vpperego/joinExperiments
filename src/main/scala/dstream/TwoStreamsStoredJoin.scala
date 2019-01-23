@@ -12,28 +12,29 @@ object TwoStreamsStoredJoin {
   var iteratorCounter = 0
   var sc = spark.sparkContext
 
-  val ssc = new StreamingContext(sc, Seconds(2))
+  val ssc = new StreamingContext(sc, Seconds(12))
+//  ssc.addStreamingListener(new FooListener)
 
   var utils = new DStreamUtils
   val relAStream = utils.createKafkaStream (ssc,config("kafkaServer"),Array(config("kafkaTopicA")),"banana")
 
   val relBStream = utils.createKafkaStream (ssc,config("kafkaServer"), Array(config("kafkaTopicB")),"apple")
 
-  val storeA = new Storage(sc,ssc,"RelA")
-  val storeB = new Storage(sc,ssc, "RelB")
+  val storeA = new NewStorage(sc,ssc,"RelA")
+  val storeB = new NewStorage(sc,ssc, "RelB")
 
 
   var probedA = storeA.store(relAStream)
   var probedB = storeB.store(relBStream)
 
-  var storeBJoin: DStream[(Int, Int)] = storeB.join(probedA,streamLeft = true, utils.joinCondition)
-  var storeAJoin: DStream[(Int, Int)] = storeA.join(probedB,streamLeft = false, utils.joinCondition)
+  var storeBJoin: DStream[(Int, Int)] = storeB.join(probedA,rightRelStream = false, utils.joinCondition)
+  var storeAJoin: DStream[(Int, Int)] = storeA.join(probedB,rightRelStream = true, utils.joinCondition)
 
 
-  val intermediateResult: DStream[(Int, Int)] = storeAJoin
+  val result: DStream[(Int, Int)] = storeAJoin
     .union(storeBJoin)
 
-  intermediateResult
+  result
     .foreachRDD{ resultRDD =>
       var resultSize = resultRDD.count()
       if (resultSize>0){
