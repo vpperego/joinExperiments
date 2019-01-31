@@ -25,9 +25,10 @@ object batchJoin {
 
     val producer = new KafkaProducer[String, String](props)
 
+    println( "Batch Join count: " + total)
     val data = new ProducerRecord[String, String](config("kafkaTopic"),
       config("kafkaServer"), "Batch Join count: " + total)
-
     producer.send(data)
+    producer.close
   }
 }

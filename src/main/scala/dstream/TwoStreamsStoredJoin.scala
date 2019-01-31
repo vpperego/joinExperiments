@@ -1,7 +1,9 @@
 package dstream
 
-import dstream.DStreamStoredJoin.ssc
-import main.startup.{config, spark}
+import java.util.Properties
+
+import main.startup.{config, configBroadcast, spark}
+import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 import org.apache.spark.streaming.dstream.DStream
@@ -12,7 +14,7 @@ object TwoStreamsStoredJoin {
   var iteratorCounter = 0
   var sc = spark.sparkContext
 
-  val ssc = new StreamingContext(sc, Seconds(12))
+  val ssc = new StreamingContext(sc, Seconds(10))
 //  ssc.addStreamingListener(new FooListener)
 
   var utils = new DStreamUtils
@@ -37,12 +39,41 @@ object TwoStreamsStoredJoin {
   result
     .foreachRDD{ resultRDD =>
       var resultSize = resultRDD.count()
-      if (resultSize>0){
-        println(s"output size: $resultSize")
 
+       if (resultSize>0) {
+        val props = new Properties()
+        props.put("bootstrap.servers",configBroadcast.value("kafkaServer") )
+        props.put("client.id", "kafkaProducer")
+        props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
+        props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
+        val producer = new KafkaProducer[String, String](props)
+        val data = new ProducerRecord[String, String](configBroadcast.value("kafkaTopicOutput"), resultSize.toString())
+        producer.send(data)
+        producer.close()
       }
+
+
+
+//      if (resultSize>0){
+//        println(s"output size: $resultSize")
+//        resultRDD.foreachPartition{part =>
+//          val props = new Properties()
+//          props.put("bootstrap.servers",configBroadcast.value("kafkaServer") )
+//          props.put("client.id", "kafkaProducer")
+//          props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
+//          props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
+//          val producer = new KafkaProducer[String, String](props)
+//          part.foreach{row =>
+//            val data = new ProducerRecord[String, String](configBroadcast.value("kafkaTopicOutput"), row.toString())
+//            producer.send(data)
+//
+//          }
+//          producer.close()
+//        }
+//      }
     }
 
-  ssc.start
+  println("Waiting for jobs (2 streams)")
+   ssc.start
   ssc.awaitTermination
  }

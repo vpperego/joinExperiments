@@ -1,122 +1,92 @@
 package dstream
 
-
-
 import java.util.Properties
 
-import main.startup.{config, spark}
+import main.startup.{configBroadcast, config, spark}
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerConfig, ProducerRecord}
-import org.apache.kafka.common.serialization.StringDeserializer
 import org.apache.log4j.{Level, Logger}
-import org.apache.spark.rdd.RDD
 import org.apache.spark.streaming.dstream.DStream
-import org.apache.spark.streaming.kafka010.ConsumerStrategies.Subscribe
-import org.apache.spark.streaming.kafka010.KafkaUtils
-import org.apache.spark.streaming.kafka010.LocationStrategies.PreferConsistent
-import org.apache.spark.streaming.{Seconds, StateSpec, StreamingContext}
+import org.apache.spark.streaming.{Milliseconds, Seconds, StateSpec, StreamingContext}
 
 object DStreamStoredJoin {
   Logger.getLogger("org").setLevel(Level.OFF)
   Logger.getLogger("akka").setLevel(Level.OFF)
-
+  var iteratorCounter = 0
   var sc = spark.sparkContext
 
-  val ssc = new StreamingContext(sc, Seconds(2))
+  val ssc = new StreamingContext(sc, Seconds(4))
+//ssc.addStreamingListener(new FooListener)
 
+  var utils = new DStreamUtils
 
-  val relAStream = createKafkaStream (Array(config("kafkaTopicA")),"banana")
+  val relAStream = utils.createKafkaStream (ssc,config("kafkaServer"),Array(config("kafkaTopicA")),"banana")
 
-  val relBStream = createKafkaStream (Array(config("kafkaTopicB")),"apple")
-   val relCStream = createKafkaStream (Array(config("kafkaTopicC")),"grape")
+  val relBStream = utils.createKafkaStream (ssc,config("kafkaServer"), Array(config("kafkaTopicB")),"apple")
+   val relCStream = utils.createKafkaStream (ssc,config("kafkaServer"), Array(config("kafkaTopicC")),"grape")
 
-  val storeA = new Storage(sc,ssc,"RelA")
-  storeA.store(relAStream)
+  val storeA = new NewStorage(sc,ssc,"RelA")
+  val storeB = new NewStorage(sc,ssc, "RelB")
+  val storeC = new NewStorage(sc,ssc, "RelC")
 
-  val storeB = new Storage(sc,ssc, "RelB")
-  storeB.store(relBStream)
+  val intermediateStore = new NewStorageIntermediate(sc,ssc,"Intermediate Result")
 
-  val storeC = new Storage(sc,ssc, "RelC")
-  storeC.store(relCStream)
+  var probedA = storeA.store(relAStream)
+  var probedB = storeB.store(relBStream)
+  var probedC: DStream[(Int, Long)] = storeC.store(relCStream)
 
-
-
-  var storeBJoin: DStream[(Int, Int)] = storeB.join(relAStream,streamLeft = true,joinCondition)
-  var storeAJoin: DStream[(Int, Int)] = storeA.join(relBStream,streamLeft = false,joinCondition)
-
+  var storeBJoin: DStream[(Int, Int)] = storeB.join(probedA,rightRelStream = false,utils.joinCondition)
+  var storeAJoin: DStream[(Int, Int)] = storeA.join(probedB,rightRelStream = true,utils.joinCondition)
 
   val intermediateResult: DStream[(Int, Int)] = storeAJoin
     .union(storeBJoin)
 
-
-  val intermediateStore = new Storage(sc,ssc,"Intermediate Result")
-  intermediateStore.storeIntermediateResult(intermediateResult)
+  var probedIntermediate: DStream[((Int, Int), Long)] = intermediateStore.store(intermediateResult)
 
   var storeIntermediateJoin: DStream[(Int, Int, Int)] = intermediateStore
-    .intermediateStoreJoin(relCStream,streamLeft = false, joinCondition2)
+    .join(probedC)
 
 
-  var storeCJoin: DStream[(Int, Int, Int)] = storeC.joinWithIntermediateResult(intermediateResult,streamLeft = true, joinCondition2)
+  var storeCJoin: DStream[(Int, Int, Int)] = storeC.joinWithIntermediateResult(probedIntermediate)
 
   var output: DStream[(Int, Int, Int)] = storeIntermediateJoin.union(storeCJoin)
 
   output
-//      .print(1000)
-    .foreachRDD{ resultRDD =>
-      resultRDD
-        .foreachPartition{ resultPartition =>
-          //      if(resultPartition.nonEmpty){
-          val kafkaProps = new Properties();
-          kafkaProps.put("bootstrap.servers", "dbis-expsrv1:9092" );
-          kafkaProps.put("client.id", "KafkaIntegration Producer");
-          kafkaProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
-          kafkaProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
-          val producer = new KafkaProducer[String, String](kafkaProps);
-          resultPartition.foreach{ resultTuple =>
-            var resString = resultTuple.toString;//._1 + "," + resultTuple._2
-          val message = new ProducerRecord[String, String]("storedJoin", resString, resString);
-            producer.send(message)
-          }
-          producer.close()
-          //      }
-        }
-    }
+     .foreachRDD { resultRDD =>
+       var resultSize = resultRDD.count()
+       if (resultSize>0) {
+         val props = new Properties()
+         props.put("bootstrap.servers",configBroadcast.value("kafkaServer") )
+         props.put("client.id", "kafkaProducer")
+         props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
+         props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
+         val producer = new KafkaProducer[String, String](props)
+         val data = new ProducerRecord[String, String](configBroadcast.value("kafkaTopicOutput"), resultSize.toString())
+         producer.send(data)
+         producer.close()
+       }
+
+
+//       if (resultSize > 0) {
+//         println(s"output size: $resultSize")
+//         resultRDD.foreachPartition { part =>
+//           val props = new Properties()
+//           props.put("bootstrap.servers",configBroadcast.value("kafkaServer") )
+//           props.put("client.id", "kafkaProducer")
+//           props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
+//           props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
+//           val producer = new KafkaProducer[String, String](props)
+//           part.foreach { row =>
+//             val data = new ProducerRecord[String, String](configBroadcast.value("kafkaTopicOutput"), row.toString())
+//             producer.send(data)
+//
+//           }
+//           producer.close()
+//         }
+       }
+
+  println("Waiting for jobs")
 
   ssc.start
   ssc.awaitTermination
-
-  private def createKafkaStream (topicName: Array[String],groupName: String): DStream[Int] ={
-
-    val kafkaParams = Map[String, Object](
-      "bootstrap.servers" -> config("kafkaServer"),
-      "key.deserializer" -> classOf[StringDeserializer],
-      "value.deserializer" -> classOf[StringDeserializer],
-      "group.id" -> groupName,
-      "auto.offset.reset" -> "latest",
-      "enable.auto.commit" -> (false: java.lang.Boolean)
-    )
-
-    KafkaUtils.createDirectStream[String, String](
-      ssc,
-      PreferConsistent,
-      Subscribe[String, String](topicName, kafkaParams)
-    )      .map(row => row.value.toInt)
-//      .repartition(8)
-  }
-
-  private def join(leftRel: DStream[Int], rightRel: DStream[Int]): DStream[(Int,Int)] = {
-    leftRel.transformWith(rightRel,
-      (rdd1: RDD[Int], rdd2 : RDD[Int]) => {
-        rdd1.cartesian(rdd2)
-      }
-    )
-  }
-
-  private def joinCondition(pair: (Int,Int)): Boolean = {
-    pair._1 < pair._2
-  }
-
-  private def joinCondition2(pair: (Int,Int,Int)): Boolean = {
-     pair._2 < pair._3
-  }
 
 }
