@@ -4,9 +4,8 @@ import org.apache.spark.SparkContext
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
 import org.apache.spark.streaming.dstream.DStream
-import org.apache.spark.streaming.StreamingContext
 
-class NewStorage (sc:SparkContext, ssc: StreamingContext, storeName: String) {
+class NewStorage (sc:SparkContext, storeName: String, rightRelation: Boolean = false) {
   private var storeRdd: RDD[(Int, Long)] = sc.emptyRDD
 
   def store (source: DStream[Int]): DStream[(Int, Long)] = {
@@ -14,11 +13,9 @@ class NewStorage (sc:SparkContext, ssc: StreamingContext, storeName: String) {
       var timeRdd: RDD[(Int, Long)] = streamedRdd.map((_,System.currentTimeMillis()))
       if(!streamedRdd.isEmpty()){
         println(s"Storing ${streamedRdd.count()} in $storeName")
-        var oldStore = storeRdd
 
         storeRdd = storeRdd.union(timeRdd)
           .setName(storeName)
-        oldStore.unpersist()// TODO - this may mess things up
 
         storeRdd.cache()
         timeRdd
@@ -29,20 +26,24 @@ class NewStorage (sc:SparkContext, ssc: StreamingContext, storeName: String) {
   }
 
 
-  def join(rightRel: DStream[(Int, Long)], rightRelStream: Boolean, joinCondition: ((Int,Int)) => Boolean): DStream[(Int, Int)] = {
+  def join(rightRel: DStream[(Int, Long)], joinCondition: (((Int, Long),(Int, Long))) => Boolean): DStream[(Int, Int)] = {
      rightRel
       .transform{ streamRdd =>
         val streamSize = streamRdd.count
         val storeSize = storeRdd.count
-        if(streamRdd.isEmpty()) {
+        if(streamSize <= 0) {
           streamRdd.map(row => (row._1,row._1))
         }
         else{
-//          if(streamSize < storeSize){
-//            anotherComputeJoin(streamRdd,storeRdd,rightRelStream) //TODO: you know what to do
-//          }else{
-            anotherComputeJoin(storeRdd,streamRdd,rightRelStream)
-//          }
+           val invert = (rightRelation && streamSize < storeSize) || (!rightRelation &&  storeSize  < streamSize)
+          if(streamSize < storeSize){
+            println(s"Broadcasting stream.Invert is $invert in $storeName")
+            computeJoin(storeRdd,streamRdd,invert,joinCondition)
+          }else{
+            println(s"Broadcasting store.Invert is $invert in $storeName")
+
+            computeJoin(streamRdd,storeRdd,invert,joinCondition)
+          }
         }
       }
   }
@@ -53,6 +54,8 @@ class NewStorage (sc:SparkContext, ssc: StreamingContext, storeName: String) {
       .transform{ streamRdd =>
         val streamSize = streamRdd.count
         val storeSize = storeRdd.count
+        val invert = (rightRelation && streamSize < storeSize) || (!rightRelation &&  storeSize  < streamSize)
+
         if(streamRdd.isEmpty()) {
           streamRdd.map(row => (row._1._1,row._1._1, row._1._1))
         }else{
@@ -66,7 +69,7 @@ class NewStorage (sc:SparkContext, ssc: StreamingContext, storeName: String) {
     var broadcastedData = sc.broadcast(broadRdd.collect())
 
     val resultRdd  = normalRdd.mapPartitions { part =>
-      var bar: Iterator[(((Int, Int), Long), (Int, Long))] = part.flatMap(storedTuple =>
+      var bar  = part.flatMap(storedTuple =>
         broadcastedData.value.map{ streamTuple =>
           (streamTuple,storedTuple)
         })
@@ -75,57 +78,32 @@ class NewStorage (sc:SparkContext, ssc: StreamingContext, storeName: String) {
         .map(row => (row._1._1._1, row._1._1._2, row._2._1))
     }
     broadcastedData.unpersist
-    resultRdd
+     resultRdd
   }
 
-  def anotherComputeJoin(normalRdd: RDD[(Int, Long)], broadRdd: RDD[(Int, Long)], rightRelStream: Boolean): RDD[(Int, Int)] = {
+  def computeJoin(normalRdd: RDD[(Int, Long)], broadRdd: RDD[(Int, Long)], invert: Boolean,joinCondition: (((Int, Long),(Int, Long))) => Boolean): RDD[(Int, Int)] = {
 
     var broadcastedData: Broadcast[Array[(Int, Long)]] = sc.broadcast(broadRdd.collect())
 
     val resultRdd  = normalRdd.mapPartitions{ part =>
-        if(rightRelStream){
-         part.flatMap(storedTuple =>
-            broadcastedData.value.map{ streamTuple =>
-              (storedTuple, streamTuple)
-            }).filter{ case (a,b) => a._1 < b._1 && a._2 < b._2}.map(row => (row._1._1, row._2._1))
-        }
-        else{
-          part.flatMap(storedTuple =>
-            broadcastedData.value.map{ streamTuple =>
-              (streamTuple, storedTuple)
+      if(invert){
+        part.flatMap(storedTuple =>
+          broadcastedData.value.map{ broadcastTuple =>
+            (broadcastTuple, storedTuple)
           })
-            .filter{ case (a,b) => a._1 < b._1 && b._2 < a._2}
-            .map(row => (row._1._1, row._2._1))
-        }
-     }
+      }
+      else{
+        part.flatMap(storedTuple =>
+          broadcastedData.value.map{ broadcastTuple =>
+            (storedTuple, broadcastTuple)
+          })
+      }
+    }.filter(joinCondition)
+      .map(row => (row._1._1, row._2._1))
     broadcastedData.unpersist
+
     resultRdd
   }
-
-//  def computeJoin(normalRdd: RDD[Int], broadRdd: RDD[Int], rightRelStream: Boolean): RDD[(Int, Int)] = {
-//    var broadStorage: Broadcast[Array[Int]] = sc.broadcast(broadRdd.collect())
-//
-//    val resultRdd: RDD[(Int, Int)] = normalRdd.mapPartitions{ part =>
-//      var foo = new ArrayBuffer[(Int,Int)]
-//      part.foreach{ streamTuple =>
-//        broadStorage.value.foreach{ storedTuple =>
-//          if(rightRelStream){
-//            if(storedTuple < streamTuple){
-//              foo.append((storedTuple,streamTuple))
-//            }
-//          }else{
-//            if(streamTuple< storedTuple ){
-//              foo.append((streamTuple,storedTuple))
-//            }
-//          }
-//        }
-//      }
-//      foo.toIterator
-//    }
-//    broadStorage.unpersist
-//    resultRdd
-//  }
-
 
 
 }
