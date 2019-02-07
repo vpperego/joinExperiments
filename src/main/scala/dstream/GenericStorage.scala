@@ -29,13 +29,12 @@ class GenericStorage[T] (sc:SparkContext, storeName: String){
       .transform { streamRdd =>
         val streamSize = streamRdd.count
         val storeSize = storeRdd.count
-        val invert = (rightRelation && storeSize < streamSize) || (!rightRelation && streamSize< storeSize  )
         if(streamRdd.isEmpty()) {
           var foo: RDD[(T, U)]  = sc.emptyRDD
           foo
         }
         else{
-           computeJoin(storeRdd, streamRdd,invert,joinCondition, rightBroad = streamSize < storeSize)
+           computeJoin(storeRdd, streamRdd,joinCondition, rightBroad = streamSize < storeSize)
         }
       }
     joinResult
@@ -46,19 +45,18 @@ class GenericStorage[T] (sc:SparkContext, storeName: String){
       .transform { streamRdd =>
         val streamSize = streamRdd.count
         val storeSize = storeRdd.count
-        val invert = (rightRelation && storeSize < streamSize) || (!rightRelation && streamSize< storeSize  )
         if(streamRdd.isEmpty()) {
           var foo: RDD[(U, T)]  = sc.emptyRDD
           foo
         }
         else{
-             computeJoinAsRight(storeRdd,streamRdd,invert,joinCondition,rightBroad = streamSize < storeSize)
+             computeJoinAsRight(storeRdd,streamRdd,joinCondition,rightBroad = streamSize < storeSize)
         }
       }
     joinResult
   }
 
-  def computeJoin[U](leftRDD: RDD[(T, Long)], rightRDD: RDD[(U, Long)], invert: Boolean, joinCondition: (((T,Long),(U,Long))) => Boolean,rightBroad: Boolean)  = {
+  def computeJoin[U](leftRDD: RDD[(T, Long)], rightRDD: RDD[(U, Long)], joinCondition: (((T,Long),(U,Long))) => Boolean,rightBroad: Boolean)  = {
 
     if(rightBroad){
       var broadcastData = sc.broadcast(rightRDD.collect())
@@ -91,31 +89,30 @@ class GenericStorage[T] (sc:SparkContext, storeName: String){
     }
   }
 
-  def computeJoinAsRight[U](leftRDD: RDD[(T, Long)], rightRDD: RDD[(U, Long)], invert: Boolean, joinCondition: (((U,Long),(T,Long))) => Boolean,rightBroad: Boolean)  = {
+  def computeJoinAsRight[U](leftRDD: RDD[(T, Long)], rightRDD: RDD[(U, Long)], joinCondition: (((U,Long),(T,Long))) => Boolean,rightBroad: Boolean)  = {
 
     if(rightBroad){
       var broadcastData  = sc.broadcast(rightRDD.collect())
-      val resultRdd: RDD[(U, T)] = leftRDD.mapPartitions{ part =>
+      val resultRdd = leftRDD.mapPartitions{ part =>
           part.flatMap(storedTuple =>
             broadcastData.value.map{ broadcastTuple =>
               (broadcastTuple, storedTuple)
             })
-
       }
         .filter{case (a,b) => joinCondition((a.asInstanceOf[(U,Long)],b.asInstanceOf[(T,Long)]))}
-        .map{case (a,b) => (b.asInstanceOf[(U,Long)]._1, a.asInstanceOf[(T,Long)]._1)}
+        .map{case (a,b) => (a.asInstanceOf[(U,Long)]._1, b.asInstanceOf[(T,Long)]._1)}
       broadcastData.unpersist
       resultRdd
     }else{
       var broadcastData  =  sc.broadcast(leftRDD.collect())
-      val resultRdd: RDD[(U, T)] = rightRDD.mapPartitions{ part =>
+      val resultRdd  = rightRDD.mapPartitions{ part =>
           part.flatMap(storedTuple =>
             broadcastData.value.map{ broadcastTuple =>
-              (broadcastTuple, storedTuple)
+              (storedTuple, broadcastTuple)
             })
       }
         .filter{case (a,b) => joinCondition((a.asInstanceOf[(U,Long)],b.asInstanceOf[(T,Long)]))}
-        .map{case (a,b) => (b.asInstanceOf[(U,Long)]._1, a.asInstanceOf[(T,Long)]._1)}
+        .map{case (a,b) => (a.asInstanceOf[(U,Long)]._1, b.asInstanceOf[(T,Long)]._1)}
       broadcastData.unpersist
       resultRdd
     }
