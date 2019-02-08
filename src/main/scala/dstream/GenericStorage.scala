@@ -11,15 +11,16 @@ class GenericStorage[T] (sc:SparkContext, storeName: String){
     source.transform{ streamedRdd =>
       var timeRdd  = streamedRdd.map((_,System.currentTimeMillis()))
       if(!streamedRdd.isEmpty()){
-        println(s"Storing ${streamedRdd.count()} in $storeName")
-
+        storeRdd
         storeRdd = storeRdd.union(timeRdd)
           .setName(storeName)
 
-        storeRdd.cache()
+        storeRdd = storeRdd.cache()
+        println(s"${streamedRdd.count()}  stored in $storeName")
+
         timeRdd
       }else{
-        timeRdd
+        sc.emptyRDD
       }
     }
   }
@@ -29,11 +30,12 @@ class GenericStorage[T] (sc:SparkContext, storeName: String){
       .transform { streamRdd =>
         val streamSize = streamRdd.count
         val storeSize = storeRdd.count
-        if(streamRdd.isEmpty()) {
+        if(streamRdd.isEmpty() || storeRdd.isEmpty()) {
           var foo: RDD[(T, U)]  = sc.emptyRDD
           foo
         }
         else{
+            println(s"Joining in $storeName")
            computeJoin(storeRdd, streamRdd,joinCondition, rightBroad = streamSize < storeSize)
         }
       }
@@ -45,7 +47,7 @@ class GenericStorage[T] (sc:SparkContext, storeName: String){
       .transform { streamRdd =>
         val streamSize = streamRdd.count
         val storeSize = storeRdd.count
-        if(streamRdd.isEmpty()) {
+        if(streamRdd.isEmpty || storeRdd.isEmpty) {
           var foo: RDD[(U, T)]  = sc.emptyRDD
           foo
         }

@@ -28,15 +28,15 @@ object TwoStreamsStoredJoin {
 
   val relBStream = utils.createKafkaStream (ssc,config("kafkaServer"), Array(config("kafkaTopicB")),"apple")
 
-  val storeA = new NewStorage(sc,"RelA",false)
-  val storeB = new NewStorage(sc,"RelB",true)
+  val storeA = new GenericStorage[Int](sc,"RelA")
+  val storeB = new GenericStorage[Int](sc,"RelB")
 
 
   var probedA = storeA.store(relAStream)
   var probedB = storeB.store(relBStream)
 
   var storeAJoin: DStream[(Int, Int)] = storeA.join(probedB, joinConditionA)
-  var storeBJoin: DStream[(Int, Int)] = storeB.join(probedA, joinConditionB)
+  var storeBJoin: DStream[(Int, Int)] = storeB.joinAsRight(probedA, joinConditionB)
 
 
   val result: DStream[(Int, Int)] = storeAJoin
