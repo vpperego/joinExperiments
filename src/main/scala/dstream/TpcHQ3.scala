@@ -17,7 +17,9 @@ object TpcHQ3 {
   Logger.getLogger("akka").setLevel(Level.OFF)
 
   var sc = spark.sparkContext;
-  val ssc = new StreamingContext(sc, Seconds(6))
+  sc.getConf.registerKryoClasses(Array(classOf[Customer],classOf[Order],classOf[LineItem],classOf[(Customer,LineItem)]))
+
+  val ssc = new StreamingContext(sc, Seconds(12))
 
   var utils = new DStreamUtils
 
@@ -27,6 +29,8 @@ object TpcHQ3 {
     Customer(fields(0).toInt,fields(6))
     }
     .filter{cust => cust.mktSegment == "BUILDING"  }
+//    .repartition(12)
+//    .map(_.custKey)
 
 
   var order  =   utils.createKafkaStreamTpch(ssc, config("kafkaServer"), Array("order"), "order",true)
@@ -35,6 +39,7 @@ object TpcHQ3 {
       Order(fields(0).toInt, fields(1).toInt, LocalDate.parse(fields(4)), fields(7).toInt)
     }
     .filter(order => order.orderDate.isBefore(LocalDate.parse("1995-03-13")))
+//    .repartition(12)
 
 
   var lineItem  = utils.createKafkaStreamTpch(ssc, config("kafkaServer"), Array("lineitem"), "lineitem",true)
@@ -43,6 +48,9 @@ object TpcHQ3 {
       LineItem(fields(0).toInt, fields(5).toDouble * (1 - fields(6).toDouble),LocalDate.parse(fields(10)))
     }
     .filter(line => line.shipDate.isAfter(LocalDate.parse("1995-03-15")))
+//    .repartition(12)
+
+  //    .map(_.orderKey)
 
 
 
@@ -66,7 +74,7 @@ object TpcHQ3 {
   var customerJoinResult  = customerStorage.join(probedOrder,customerJoinPredicate)
   var orderJoinResult   = orderStorage.joinAsRight(probedCustomer,orderJoinPredicate)
 
-  var intermediateResult =  customerJoinResult.union(orderJoinResult)
+  var intermediateResult =  customerJoinResult.union(orderJoinResult).repartition(12)
 
   var probedIntermediate = intermediateStorage
                         .store(intermediateResult)
@@ -76,24 +84,24 @@ object TpcHQ3 {
 
   var lineItemJoinResult = lineItemStorage.joinAsRight(probedIntermediate,lineItemJoinPredicate)
 
-  var joinResult  =  intermediateJoinResult.union(lineItemJoinResult)
-    .map{
-   case ((c:Customer,o: Order),l: LineItem) =>
-     ((l.orderKey,o.orderDate,o.shipPriority),(l.revenue))
-   }
+  var result  =  intermediateJoinResult.union(lineItemJoinResult)
+//    .map{
+//   case ((c:Customer,o: Order),l: LineItem) =>
+//     ((l.orderKey,o.orderDate,o.shipPriority),(l.revenue))
+//   }
+//
+//  var result =
+//    joinResult.groupByKey.map {
+//    row =>
+//      var revenue: Double = row._2.sum
+//      ((row._1._2,revenue),row._1._1,row._1._3)
+//  }.transform{rddResult =>
+//    rddResult.sortBy(_._1._2,ascending = false)
+//  }.map{r=>
+//    (r._2,r._1._2,r._1._1,r._3)
+//  }
 
-  var result =
-    joinResult.groupByKey.map {
-    row =>
-      var revenue: Double = row._2.sum
-      ((row._1._2,revenue),row._1._1,row._1._3)
-  }.transform{rddResult =>
-    rddResult.sortBy(_._1._2,ascending = false)
-  }.map{r=>
-    (r._2,r._1._2,r._1._1,r._3)
-  }
-
-  joinResult
+  result
     .foreachRDD { resultRDD =>
       var resultSize = resultRDD.count()
       if (resultSize > 0) {
@@ -114,10 +122,10 @@ object TpcHQ3 {
           props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
           props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
           val producer = new KafkaProducer[String, String](props)
-          partition.foreach{row =>
-            val data = new ProducerRecord[String, String]("storedJoin", row.toString)
+//          partition.foreach{row =>
+            val data = new ProducerRecord[String, String]("storedJoin", resultSize.toString)
             producer.send(data)
-          }
+//          }
           producer.close
         }
       }

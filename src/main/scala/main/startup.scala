@@ -1,7 +1,7 @@
 package main
 
 
-import dstream.{DStreamStoredJoin, TwoStreamsStoredJoin}
+import dstream._
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.sql.SparkSession
 import structuredStreaming._
@@ -13,10 +13,11 @@ object startup extends App {
     .builder
     .config("spark.streaming.kafka.consumer.cache.enabled","false")
      .config("spark.streaming.backpressure.enabled","true")
+      .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
 //    .config("spark.metrics.conf.*.sink.graphite.class", "org.apache.spark.metrics.sink.GraphiteSink")
 //  .config("spark.metrics.conf.*.sink.graphite.host", "192.168.2.9")
 //     .config("spark.metrics.conf.*.sink.graphite.port", "2003")
-    .config("spark.network.timeout","500s")
+//    .config("spark.network.timeout","500s")
 
     .appName(_appName)
     .getOrCreate
@@ -37,6 +38,9 @@ object startup extends App {
     case "batchJoin" => batchJoin.run
     case "DStreamStoredJoin" => DStreamStoredJoin
     case "TwoStreamsStoredJoin" => TwoStreamsStoredJoin
+    case "GenericStoredJoin" => GenericStoredJoin
+    case "DStreamCartesianJoin" => DStreamCartesianJoin
+    case "TpcHQ3" => dstream.TpcHQ3
     case "SSStoredJoin" => SSStoredJoin
     case _ => None
   }
