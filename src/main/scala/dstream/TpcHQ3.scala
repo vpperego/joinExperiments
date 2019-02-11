@@ -17,7 +17,7 @@ object TpcHQ3 {
   Logger.getLogger("akka").setLevel(Level.OFF)
 
   var sc = spark.sparkContext;
-  sc.getConf.registerKryoClasses(Array(classOf[Customer],classOf[Order],classOf[LineItem],classOf[(Customer,LineItem)]))
+  sc.getConf.registerKryoClasses(Array(classOf[Customer],classOf[Order],classOf[LineItem],classOf[(Customer,Order)]))
 
   val ssc = new StreamingContext(sc, Seconds(12))
 
@@ -71,35 +71,20 @@ object TpcHQ3 {
   val intermediateJoinPredicate = (pair:(((Customer, Order),Long),(LineItem, Long))) => pair._1._1._2.orderKey == pair._2._1.orderKey && pair._1._2 < pair._2._2
 
 
-  var customerJoinResult  = customerStorage.join(probedOrder,customerJoinPredicate)
-  var orderJoinResult   = orderStorage.joinAsRight(probedCustomer,orderJoinPredicate)
+  var customerJoinResult  = customerStorage.join(probedOrder,customerJoinPredicate,orderStorage.storeSize)
+  var orderJoinResult   = orderStorage.joinAsRight(probedCustomer,orderJoinPredicate,customerStorage.storeSize)
 
-  var intermediateResult =  customerJoinResult.union(orderJoinResult).repartition(12)
+  var intermediateResult =  customerJoinResult.union(orderJoinResult)
 
   var probedIntermediate = intermediateStorage
-                        .store(intermediateResult)
+                        .store(intermediateResult, aproximateSize =customerStorage.storeSize+orderStorage.storeSize)
 
   var intermediateJoinResult = intermediateStorage
-                      .join(probedLineItem, intermediateJoinPredicate)
+                      .join(probedLineItem, intermediateJoinPredicate,lineItemStorage.storeSize)
 
-  var lineItemJoinResult = lineItemStorage.joinAsRight(probedIntermediate,lineItemJoinPredicate)
+  var lineItemJoinResult = lineItemStorage.joinAsRight(probedIntermediate,lineItemJoinPredicate,intermediateStorage.storeSize)
 
   var result  =  intermediateJoinResult.union(lineItemJoinResult)
-//    .map{
-//   case ((c:Customer,o: Order),l: LineItem) =>
-//     ((l.orderKey,o.orderDate,o.shipPriority),(l.revenue))
-//   }
-//
-//  var result =
-//    joinResult.groupByKey.map {
-//    row =>
-//      var revenue: Double = row._2.sum
-//      ((row._1._2,revenue),row._1._1,row._1._3)
-//  }.transform{rddResult =>
-//    rddResult.sortBy(_._1._2,ascending = false)
-//  }.map{r=>
-//    (r._2,r._1._2,r._1._1,r._3)
-//  }
 
   result
     .foreachRDD { resultRDD =>

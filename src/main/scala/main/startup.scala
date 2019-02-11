@@ -41,6 +41,7 @@ object startup extends App {
     case "GenericStoredJoin" => GenericStoredJoin
     case "DStreamCartesianJoin" => DStreamCartesianJoin
     case "TpcHQ3" => dstream.TpcHQ3
+    case "TpcHQ3Batch" => TpcHQ3Batch
     case "SSStoredJoin" => SSStoredJoin
     case _ => None
   }
