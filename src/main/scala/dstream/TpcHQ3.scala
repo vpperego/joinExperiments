@@ -1,16 +1,17 @@
 package dstream
 
-import java.time.LocalDate
+import java.sql.Date
 import java.util.Properties
 
 import main.startup.{config, spark}
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 import org.apache.log4j.{Level, Logger}
+import org.apache.spark.streaming.dstream.DStream
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 
 case class Customer(custKey: Int, mktSegment: String)
-case class Order(orderKey: Int,custKey: Int, orderDate: LocalDate, shipPriority: Int)
-case class LineItem(orderKey: Int, revenue: Double, shipDate: LocalDate)
+case class Order(orderKey: Int,custKey: Int, orderDate: Date, shipPriority: Int)
+case class LineItem(orderKey: Int, revenue: Double, shipDate: Date)
 
 object TpcHQ3 {
   Logger.getLogger("org").setLevel(Level.OFF)
@@ -29,35 +30,31 @@ object TpcHQ3 {
     Customer(fields(0).toInt,fields(6))
     }
     .filter{cust => cust.mktSegment == "BUILDING"  }
-//    .repartition(12)
 //    .map(_.custKey)
 
 
   var order  =   utils.createKafkaStreamTpch(ssc, config("kafkaServer"), Array("order"), "order",true)
     .map{line =>
       var fields = line.split('|')
-      Order(fields(0).toInt, fields(1).toInt, LocalDate.parse(fields(4)), fields(7).toInt)
+      Order(fields(0).toInt, fields(1).toInt, Date.valueOf(fields(4)), fields(7).toInt)
     }
-    .filter(order => order.orderDate.isBefore(LocalDate.parse("1995-03-13")))
-//    .repartition(12)
+    .filter(order => order.orderDate.before(Date.valueOf("1995-03-13")))
 
 
   var lineItem  = utils.createKafkaStreamTpch(ssc, config("kafkaServer"), Array("lineitem"), "lineitem",true)
     .map{line =>
       var fields = line.split('|')
-      LineItem(fields(0).toInt, fields(5).toDouble * (1 - fields(6).toDouble),LocalDate.parse(fields(10)))
+      LineItem(fields(0).toInt, fields(5).toDouble * (1 - fields(6).toDouble),Date.valueOf(fields(10)))
     }
-    .filter(line => line.shipDate.isAfter(LocalDate.parse("1995-03-15")))
-//    .repartition(12)
+    .filter(line => line.shipDate.after(Date.valueOf("1995-03-15")))
 
-  //    .map(_.orderKey)
 
 
 
   var customerStorage = new GenericStorage[Customer](sc,"customer")
   var orderStorage = new GenericStorage[Order](sc,"order")
   var lineItemStorage = new GenericStorage[LineItem](sc,"lineItem")
-  var intermediateStorage = new GenericStorage[(Customer,Order)](sc,"Intermediate Storage")
+  var intermediateStorage = new GenericStorage[((Customer,Order),Long)](sc,"Intermediate Storage")
 
 
   var probedCustomer = customerStorage.store(customer)
@@ -67,14 +64,15 @@ object TpcHQ3 {
 
   val customerJoinPredicate = (pair:((Customer, Long),(Order, Long))) => pair._1._1.custKey == pair._2._1.custKey && pair._1._2 < pair._2._2
   val orderJoinPredicate = (pair:((Customer, Long),(Order, Long))) => pair._1._1.custKey == pair._2._1.custKey && pair._2._2 < pair._1._2
-  val lineItemJoinPredicate = (pair:(((Customer, Order),Long),(LineItem, Long))) => pair._1._1._2.orderKey == pair._2._1.orderKey && pair._2._2 < pair._1._2
-  val intermediateJoinPredicate = (pair:(((Customer, Order),Long),(LineItem, Long))) => pair._1._1._2.orderKey == pair._2._1.orderKey && pair._1._2 < pair._2._2
+  val lineItemJoinPredicate = (pair:((((Customer,Order),Long),Long),(LineItem, Long))) => pair._1._1._1._2.orderKey == pair._2._1.orderKey && pair._2._2 < pair._1._2
+  val intermediateJoinPredicate = (pair:((((Customer,Order),Long),Long),(LineItem, Long))) => pair._1._1._1._2.orderKey == pair._2._1.orderKey && pair._1._2 < pair._2._2
 
 
   var customerJoinResult  = customerStorage.join(probedOrder,customerJoinPredicate,orderStorage.storeSize)
   var orderJoinResult   = orderStorage.joinAsRight(probedCustomer,orderJoinPredicate,customerStorage.storeSize)
 
-  var intermediateResult =  customerJoinResult.union(orderJoinResult)
+  var intermediateResult  =  customerJoinResult.union(orderJoinResult)
+    .cache()
 
   var probedIntermediate = intermediateStorage
                         .store(intermediateResult, aproximateSize =customerStorage.storeSize+orderStorage.storeSize)
@@ -84,24 +82,20 @@ object TpcHQ3 {
 
   var lineItemJoinResult = lineItemStorage.joinAsRight(probedIntermediate,lineItemJoinPredicate,intermediateStorage.storeSize)
 
-  var result  =  intermediateJoinResult.union(lineItemJoinResult)
+  var result: DStream[(Long, Long)] =  intermediateJoinResult.union(lineItemJoinResult)
+    .map(resultRow => (resultRow._1._1._2,System.currentTimeMillis()))
+      .cache()
+
 
   result
     .foreachRDD { resultRDD =>
       var resultSize = resultRDD.count()
       if (resultSize > 0) {
         println(s"Result size: ${resultSize}")
-//        val props = new Properties()
-//        props.put("bootstrap.servers", configBroadcast.value("kafkaServer"))
-//        props.put("client.id", "kafkaProducer")
-//        props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
-//        props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
-//        val producer = new KafkaProducer[String, String](props)
-//        val data = new ProducerRecord[String, String](configBroadcast.value("kafkaTopicOutput"), resultSize.toString())
-//        producer.send(data)
-//        producer.close()
-        resultRDD.foreachPartition{partition =>
-          val props = new Properties()
+
+        resultRDD.saveAsTextFile("hdfs:/user/vinicius/tpchQ3Times")
+
+        val props = new Properties()
           props.put("bootstrap.servers", "dbis-expsrv1:9092,dbis-expsrv1:9093,dbis-expsrv10:9092,dbis-expsrv10:9093,dbis-expsrv11:9092,dbis-expsrv11:9093")
           props.put("client.id", "kafkaProducer")
           props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
@@ -112,7 +106,7 @@ object TpcHQ3 {
             producer.send(data)
 //          }
           producer.close
-        }
+//        }
       }
     }
 

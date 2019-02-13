@@ -15,8 +15,6 @@ class GenericStorage[T] (sc:SparkContext, storeName: String){
           .setName(storeName)
 
         storeRdd = storeRdd.cache()
-        println(s"${streamedRdd.count()}  stored in $storeName")
-
         timeRdd
       }else{
         sc.emptyRDD
@@ -24,15 +22,14 @@ class GenericStorage[T] (sc:SparkContext, storeName: String){
     }
   }
 
-  def join[U](rightRel: DStream[(U, Long)],  joinCondition: (((T,Long),(U,Long))) => Boolean,streamSize: Long): DStream[(T,U)] = {
+  def join[U](rightRel: DStream[(U, Long)],  joinCondition: (((T,Long),(U,Long))) => Boolean,streamSize: Long) = {
     var joinResult  = rightRel
       .transform { streamRdd =>
         if(streamRdd.isEmpty() || storeRdd.isEmpty()) {
-          var foo: RDD[(T, U)]  = sc.emptyRDD
+          var foo: RDD[((T, U),Long)] = sc.emptyRDD
           foo
         }
         else{
-//          val streamSize = streamRdd.count
             println(s"Joining in $storeName")
            computeJoin(storeRdd, streamRdd,joinCondition, rightBroad = streamSize < storeSize)
         }
@@ -40,11 +37,11 @@ class GenericStorage[T] (sc:SparkContext, storeName: String){
     joinResult
   }
 
-  def joinAsRight[U](rightRel: DStream[(U, Long)],  joinCondition: (((U,Long),(T,Long))) => Boolean,streamSize: Long): DStream[(U,T)] = {
+  def joinAsRight[U](rightRel: DStream[(U, Long)],  joinCondition: (((U,Long),(T,Long))) => Boolean,streamSize: Long) = {
     var joinResult  = rightRel
       .transform { streamRdd =>
         if(streamRdd.isEmpty || storeRdd.isEmpty) {
-          var foo: RDD[(U, T)]  = sc.emptyRDD
+          var foo: RDD[((U, T),Long)]  = sc.emptyRDD
           foo
         }
         else{
@@ -59,34 +56,31 @@ class GenericStorage[T] (sc:SparkContext, storeName: String){
 
     if(rightBroad){
       var broadcastData = sc.broadcast(rightRDD.collect())
-      val resultRdd: RDD[(T, U)] = leftRDD.repartition(4).mapPartitions{ part =>
+      val resultRdd  = leftRDD.mapPartitions{ part =>
           part.flatMap(storedTuple =>
             broadcastData.value.map{ broadcastTuple =>
               (storedTuple, broadcastTuple)
             })
       }
       .filter{case (a,b) => joinCondition((a.asInstanceOf[(T,Long)],b.asInstanceOf[(U,Long)]))}
-      .map{case (a,b) => (a.asInstanceOf[(T,Long)]._1, b.asInstanceOf[(U,Long)]._1)}
+      .map{case (a,b) => ((a.asInstanceOf[(T,Long)]._1, b.asInstanceOf[(U,Long)]._1),if(a._2<b._2) a._2 else b._2)}
       broadcastData.unpersist
 
       resultRdd
-        //.cache()
-
     }else{
       var broadcastData  =  sc.broadcast(leftRDD.collect())
 
-      val resultRdd: RDD[(T, U)] = rightRDD.repartition(4).mapPartitions{ part =>
+      val resultRdd = rightRDD.mapPartitions{ part =>
           part.flatMap(storedTuple =>
             broadcastData.value.map{ broadcastTuple =>
               (broadcastTuple,storedTuple )
             })
        }
         .filter{case (a,b) => joinCondition((a.asInstanceOf[(T,Long)],b.asInstanceOf[(U,Long)]))}
-        .map{case (a,b) => (a.asInstanceOf[(T,Long)]._1, b.asInstanceOf[(U,Long)]._1)}
+        .map{case (a,b) => ((a.asInstanceOf[(T,Long)]._1, b.asInstanceOf[(U,Long)]._1),if(a._2<b._2) a._2 else b._2)}
       broadcastData.unpersist
 
       resultRdd
-        //.cache()
     }
   }
 
@@ -94,30 +88,28 @@ class GenericStorage[T] (sc:SparkContext, storeName: String){
 
     if(rightBroad){
       var broadcastData  = sc.broadcast(rightRDD.collect())
-      val resultRdd = leftRDD.repartition(4).mapPartitions{ part =>
+      val resultRdd = leftRDD.mapPartitions{ part =>
           part.flatMap(storedTuple =>
             broadcastData.value.map{ broadcastTuple =>
               (broadcastTuple, storedTuple)
             })
       }
         .filter{case (a,b) => joinCondition((a.asInstanceOf[(U,Long)],b.asInstanceOf[(T,Long)]))}
-        .map{case (a,b) => (a.asInstanceOf[(U,Long)]._1, b.asInstanceOf[(T,Long)]._1)}
+        .map{case (a,b) => ((a.asInstanceOf[(U,Long)]._1, b.asInstanceOf[(T,Long)]._1),if(a._2<b._2) a._2 else b._2)}
       broadcastData.unpersist
       resultRdd
-        //.cache()
     }else{
       var broadcastData  =  sc.broadcast(leftRDD.collect())
-      val resultRdd  = rightRDD.repartition(4).mapPartitions{ part =>
+      val resultRdd  = rightRDD.mapPartitions{ part =>
           part.flatMap(storedTuple =>
             broadcastData.value.map{ broadcastTuple =>
               (storedTuple, broadcastTuple)
             })
       }
         .filter{case (a,b) => joinCondition((a.asInstanceOf[(U,Long)],b.asInstanceOf[(T,Long)]))}
-        .map{case (a,b) => (a.asInstanceOf[(U,Long)]._1, b.asInstanceOf[(T,Long)]._1)}
+        .map{case (a,b) =>((a.asInstanceOf[(U,Long)]._1, b.asInstanceOf[(T,Long)]._1),if(a._2<b._2) a._2 else b._2)}
       broadcastData.unpersist
       resultRdd
-        //.cache()
     }
 
   }

@@ -14,6 +14,7 @@ object startup extends App {
     .config("spark.streaming.kafka.consumer.cache.enabled","false")
      .config("spark.streaming.backpressure.enabled","true")
       .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+     .config("spark.kryoserializer.buffer.max.mb","512m")
 //    .config("spark.metrics.conf.*.sink.graphite.class", "org.apache.spark.metrics.sink.GraphiteSink")
 //  .config("spark.metrics.conf.*.sink.graphite.host", "192.168.2.9")
 //     .config("spark.metrics.conf.*.sink.graphite.port", "2003")
