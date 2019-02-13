@@ -27,11 +27,20 @@ class DStreamUtils {
         )      .map(row => row.value.toInt)
   }
 
-   def joinCondition(pair: (Int,Int)): Boolean = {
-    pair._1 < pair._2
-   }
+  def createKafkaStreamTpch(ssc: StreamingContext,serverName: String,topicName: Array[String],groupName: String, earliestOffset: Boolean=false): DStream[String] ={
+    val kafkaParams = Map[String, Object](
+      "bootstrap.servers" -> config("kafkaServer"),
+      "key.deserializer" -> classOf[StringDeserializer],
+      "value.deserializer" -> classOf[StringDeserializer],
+      "group.id" -> groupName,
+      "auto.offset.reset" -> (if (earliestOffset) "earliest" else "latest"),
+      "enable.auto.commit" -> (false: java.lang.Boolean)
+    )
 
-   def joinCondition2(pair: (Int,Int,Int)): Boolean = {
-    pair._2 < pair._3
-   }
+    KafkaUtils.createDirectStream[String, String](
+      ssc,
+      PreferConsistent,
+      Subscribe[String, String](topicName, kafkaParams)
+    )      .map(row => row.value)
+  }
 }
