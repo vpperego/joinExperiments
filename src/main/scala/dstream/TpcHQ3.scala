@@ -7,7 +7,7 @@ import main.startup.{config, spark}
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.streaming.dstream.DStream
-import org.apache.spark.streaming.{Seconds, StreamingContext}
+import org.apache.spark.streaming.{Minutes, Seconds, StreamingContext}
 
 case class Customer(custKey: Int, mktSegment: String)
 case class Order(orderKey: Int,custKey: Int, orderDate: Date, shipPriority: Int)
@@ -30,16 +30,15 @@ object TpcHQ3 {
     Customer(fields(0).toInt,fields(6))
     }
     .filter{cust => cust.mktSegment == "BUILDING"  }
-//    .map(_.custKey)
-
+    .cache()
 
   var order  =   utils.createKafkaStreamTpch(ssc, config("kafkaServer"), Array("order"), "order",true)
     .map{line =>
       var fields = line.split('|')
       Order(fields(0).toInt, fields(1).toInt, Date.valueOf(fields(4)), fields(7).toInt)
     }
-    .filter(order => order.orderDate.before(Date.valueOf("1995-03-13")))
-
+    .filter(order => order.orderDate.before(Date.valueOf("1995-03-15")))
+    .cache()
 
   var lineItem  = utils.createKafkaStreamTpch(ssc, config("kafkaServer"), Array("lineitem"), "lineitem",true)
     .map{line =>
@@ -47,6 +46,7 @@ object TpcHQ3 {
       LineItem(fields(0).toInt, fields(5).toDouble * (1 - fields(6).toDouble),Date.valueOf(fields(10)))
     }
     .filter(line => line.shipDate.after(Date.valueOf("1995-03-15")))
+    .cache()
 
 
 
@@ -113,5 +113,5 @@ object TpcHQ3 {
   println("Waiting for jobs (TPC-H Q3) ")
 
   ssc.start
-  ssc.awaitTermination
+  ssc.awaitTerminationOrTimeout(Minutes(2).milliseconds)
 }
