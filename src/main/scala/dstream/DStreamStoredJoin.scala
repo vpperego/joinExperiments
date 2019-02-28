@@ -19,9 +19,7 @@ object DStreamStoredJoin {
 
   val joinConditionC = (pair:((((Int, Int), Long), Long),(Int, Long))) => pair._1._1._1._2 < pair._2._1 && pair._2._2  < pair._1._2
 
-  val ssc = new StreamingContext(sc, Seconds(4))
-
-  val joinCondition = (pair: (Int,Int)) => pair._1 < pair._2
+  val ssc = new StreamingContext(sc, Seconds(16))
 
   var utils = new DStreamUtils
 
@@ -61,7 +59,7 @@ object DStreamStoredJoin {
        if (resultSize>0) {
          println(s"Result size: $resultSize")
 //          println(s"End = ${resultRDD.sortBy(_._3).max()._3 - resultRDD.sortBy(_._2).min()._2}")
-         resultRDD.saveAsTextFile("hdfs:/user/vinicius/tpchQ3Times")
+//         resultRDD.saveAsTextFile("hdfs:/user/vinicius/tpchQ3Times")
 //            resultRDD.saveAsTextFile("file:///tmp/result")
 //            var startTime =  resultRDD.keys.min()
 //             var endTime   =  resultRDD.values.max()

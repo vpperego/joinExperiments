@@ -1,13 +1,11 @@
 package dstream
 
 import java.sql.Date
-import java.util.Properties
 
 import main.startup.{config, spark}
-import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 import org.apache.log4j.{Level, Logger}
-import org.apache.spark.streaming.dstream.DStream
-import org.apache.spark.streaming.{Minutes, Seconds, StreamingContext}
+import org.apache.spark.rdd.RDD
+ import org.apache.spark.streaming.{Minutes, Seconds, StreamingContext}
 
 case class Customer(custKey: Int, mktSegment: String)
 case class Order(orderKey: Int,custKey: Int, orderDate: Date, shipPriority: Int)
@@ -72,46 +70,53 @@ object TpcHQ3 {
   var orderJoinResult   = orderStorage.joinAsRight(probedCustomer,orderJoinPredicate,customerStorage.storeSize)
 
   var intermediateResult  =  customerJoinResult.union(orderJoinResult)
-    .cache()
+    .transform{intData =>
+      var foo: RDD[Int] = intData.mapPartitions( iter  => Array(iter.length).iterator,true)
+      foo.collect().foreach(println)
+      intData.count
+      intData
+    }
 
-  var probedIntermediate = intermediateStorage
-                        .store(intermediateResult, aproximateSize =customerStorage.storeSize+orderStorage.storeSize)
+//  var probedIntermediate = intermediateStorage
+//                        .store(intermediateResult, aproximateSize =customerStorage.storeSize+orderStorage.storeSize)
+//
+//  var intermediateJoinResult = intermediateStorage
+//                      .join(probedLineItem, intermediateJoinPredicate,lineItemStorage.storeSize,false)
+//
+//  var lineItemJoinResult = lineItemStorage.joinAsRight(probedIntermediate,lineItemJoinPredicate,intermediateStorage.storeSize,false)
+//
+//  var result: DStream[(Long, Long)] =  intermediateJoinResult.union(lineItemJoinResult)
+//    .map(resultRow => (resultRow._1._1._2,System.currentTimeMillis()))
+//      .cache()
 
-  var intermediateJoinResult = intermediateStorage
-                      .join(probedLineItem, intermediateJoinPredicate,lineItemStorage.storeSize)
 
-  var lineItemJoinResult = lineItemStorage.joinAsRight(probedIntermediate,lineItemJoinPredicate,intermediateStorage.storeSize)
-
-  var result: DStream[(Long, Long)] =  intermediateJoinResult.union(lineItemJoinResult)
-    .map(resultRow => (resultRow._1._1._2,System.currentTimeMillis()))
-      .cache()
-
-
-  result
+  intermediateResult
     .foreachRDD { resultRDD =>
       var resultSize = resultRDD.count()
       if (resultSize > 0) {
         println(s"Result size: ${resultSize}")
-
-        resultRDD.saveAsTextFile("hdfs:/user/vinicius/tpchQ3Times")
-
-        val props = new Properties()
-          props.put("bootstrap.servers", "dbis-expsrv1:9092,dbis-expsrv1:9093,dbis-expsrv10:9092,dbis-expsrv10:9093,dbis-expsrv11:9092,dbis-expsrv11:9093")
-          props.put("client.id", "kafkaProducer")
-          props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
-          props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
-          val producer = new KafkaProducer[String, String](props)
-//          partition.foreach{row =>
-            val data = new ProducerRecord[String, String]("storedJoin", resultSize.toString)
-            producer.send(data)
-//          }
-          producer.close
-//        }
+//        var startTime =  resultRDD.keys.min()
+//        var endTime   =  resultRDD.values.max()
+//
+//        resultRDD.saveAsTextFile("hdfs:/user/vinicius/tpchQ3Times")
+//        var time =endTime-startTime
+//        val msg = resultSize.toString +"," + time.toString +","+(resultSize/time)
+//
+//        val props = new Properties()
+//          props.put("bootstrap.servers", "localhost:9092")
+//          props.put("client.id", "kafkaProducer")
+//          props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
+//          props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
+//          val producer = new KafkaProducer[String, String](props)
+//
+//        val data = new ProducerRecord[String, String]("storedJoin", msg)
+//            producer.send(data)
+//          producer.close
       }
     }
 
   println("Waiting for jobs (TPC-H Q3) ")
 
   ssc.start
-  ssc.awaitTerminationOrTimeout(Minutes(2).milliseconds)
+  ssc.awaitTerminationOrTimeout(Minutes(5).milliseconds)
 }
