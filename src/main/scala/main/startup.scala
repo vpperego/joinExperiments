@@ -39,11 +39,10 @@ object startup extends App {
     case "batchJoin" => batchJoin.run
     case "DStreamStoredJoin" => DStreamStoredJoin
     case "TwoStreamsStoredJoin" => TwoStreamsStoredJoin
-    case "GenericStoredJoin" => GenericStoredJoin
-    case "DStreamCartesianJoin" => DStreamCartesianJoin
     case "TpcHQ3" => dstream.TpcHQ3
     case "TpcHQ3Batch" => TpcHQ3Batch
     case "SSStoredJoin" => SSStoredJoin
+    case "WindowJoin" => dstream.WindowJoin
     case _ => None
   }
 
