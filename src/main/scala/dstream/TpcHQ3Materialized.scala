@@ -4,14 +4,14 @@ import java.sql.Date
 
 import main.startup.{config, spark}
 import org.apache.log4j.{Level, Logger}
-import org.apache.spark.streaming.dstream.DStream
-import org.apache.spark.streaming.{Minutes, Seconds, StreamingContext}
+import org.apache.spark.rdd.RDD
+ import org.apache.spark.streaming.{Minutes, Seconds, StreamingContext}
 
 case class Customer(custKey: Int, mktSegment: String)
 case class Order(orderKey: Int,custKey: Int, orderDate: Date, shipPriority: Int)
 case class LineItem(orderKey: Int, revenue: Double, shipDate: Date)
 
-object TpcHQ3 {
+object TpcHQ3Materialized {
   Logger.getLogger("org").setLevel(Level.OFF)
   Logger.getLogger("akka").setLevel(Level.OFF)
 
@@ -23,9 +23,9 @@ object TpcHQ3 {
   var utils = new DStreamUtils
 
   var customer  = utils.createKafkaStreamTpch(ssc,config("kafkaServer"), Array("customer"), "customer",true)
-    .map{line =>
-      var fields = line.split('|')
-      Customer(fields(0).toInt,fields(6))
+  .map{line =>
+     var fields = line.split('|')
+    Customer(fields(0).toInt,fields(6))
     }
     .filter{cust => cust.mktSegment == "BUILDING"  }
     .cache()
@@ -52,9 +52,10 @@ object TpcHQ3 {
   var customerStorage = new GenericStorage[Customer](sc,"customer")
   var orderStorage = new GenericStorage[Order](sc,"order")
   var lineItemStorage = new GenericStorage[LineItem](sc,"lineItem")
+  var intermediateStorage = new GenericStorage[((Customer,Order),Long)](sc,"Intermediate Storage")
 
 
-  var probedCustomer: DStream[(Customer, Long)] = customerStorage.store(customer)
+  var probedCustomer = customerStorage.store(customer)
   var probedOrder = orderStorage.store(order)
   var probedLineItem = lineItemStorage.store(lineItem)
 
@@ -64,34 +65,58 @@ object TpcHQ3 {
   val lineItemJoinPredicate = (pair:((((Customer,Order),Long),Long),(LineItem, Long))) => pair._1._1._1._2.orderKey == pair._2._1.orderKey && pair._2._2 < pair._1._2
   val intermediateJoinPredicate = (pair:((((Customer,Order),Long),Long),(LineItem, Long))) => pair._1._1._1._2.orderKey == pair._2._1.orderKey && pair._1._2 < pair._2._2
 
-  val itemOrderJoinPredicate = (pair:((Order, Long),(LineItem, Long))) => pair._1._1.orderKey == pair._2._1.orderKey && pair._2._2 < pair._1._2
-  val customerOrderJoinPredicate = (pair:((Customer, Long),((Order, LineItem), Long))) => pair._1._1.custKey == pair._2._1._1.custKey && pair._1._2 < pair._1._2
+
+  var customerJoinResult  = customerStorage.join(probedOrder,customerJoinPredicate,orderStorage.storeSize)
+  var orderJoinResult   = orderStorage.joinAsRight(probedCustomer,orderJoinPredicate,customerStorage.storeSize)
+
+  var intermediateResult  =  customerJoinResult.union(orderJoinResult)
+    .transform{intData =>
+      var foo: RDD[Int] = intData.mapPartitions( iter  => Array(iter.length).iterator,true)
+      foo.collect().foreach(println)
+      intData.count
+      intData
+    }
+
+//  var probedIntermediate = intermediateStorage
+//                        .store(intermediateResult, aproximateSize =customerStorage.storeSize+orderStorage.storeSize)
+//
+//  var intermediateJoinResult = intermediateStorage
+//                      .join(probedLineItem, intermediateJoinPredicate,lineItemStorage.storeSize,false)
+//
+//  var lineItemJoinResult = lineItemStorage.joinAsRight(probedIntermediate,lineItemJoinPredicate,intermediateStorage.storeSize,false)
+//
+//  var result: DStream[(Long, Long)] =  intermediateJoinResult.union(lineItemJoinResult)
+//    .map(resultRow => (resultRow._1._1._2,System.currentTimeMillis()))
+//      .cache()
 
 
-  // c⋈O⋈L
-  var customerOrderJoin = orderStorage.joinAsRight(probedCustomer,orderJoinPredicate,0L)
-  var output1 =  lineItemStorage.joinAsRight(customerOrderJoin,lineItemJoinPredicate,0L)
+  intermediateResult
+    .foreachRDD { resultRDD =>
+      var resultSize = resultRDD.count()
+      if (resultSize > 0) {
+        println(s"Result size: ${resultSize}")
+//        var startTime =  resultRDD.keys.min()
+//        var endTime   =  resultRDD.values.max()
+//
+//        resultRDD.saveAsTextFile("hdfs:/user/vinicius/tpchQ3Times")
+//        var time =endTime-startTime
+//        val msg = resultSize.toString +"," + time.toString +","+(resultSize/time)
+//
+//        val props = new Properties()
+//          props.put("bootstrap.servers", "localhost:9092")
+//          props.put("client.id", "kafkaProducer")
+//          props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
+//          props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
+//          val producer = new KafkaProducer[String, String](props)
+//
+//        val data = new ProducerRecord[String, String]("storedJoin", msg)
+//            producer.send(data)
+//          producer.close
+      }
+    }
 
-  // o⋈C⋈L
-  var orderCustomerJoin  = customerStorage.join(probedOrder,customerJoinPredicate,orderStorage.storeSize)
-  var output2: DStream[(((Customer, Order), LineItem), Long)] = lineItemStorage.joinAsRight(orderCustomerJoin,lineItemJoinPredicate,0L)
-
-  // l⋈O⋈C
-  var lineItemOrderJoin: DStream[((Order, LineItem), Long)] = orderStorage.join(probedLineItem,itemOrderJoinPredicate,orderStorage.storeSize)
-  var output3: DStream[(((Customer, Order), LineItem), Long)]  = customerStorage.join(lineItemOrderJoin,customerOrderJoinPredicate,0L).map(r => (((r._1._1,r._1._2._1),r._1._2._2),r._2))
-
-
-  output1
-      .union(output2)
-      .union(output3)
-      .print
-//    .foreachRDD { resultRDD =>
-//    var resultSize = resultRDD.count()
-//    if (resultSize > 0) {
-//      println(s"Result size: ${resultSize}")
-//    }
-//  }
   println("Waiting for jobs (TPC-H Q3) ")
+
   ssc.start
   ssc.awaitTerminationOrTimeout(Minutes(5).milliseconds)
 }
