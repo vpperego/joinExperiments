@@ -39,7 +39,7 @@ object TpcHQ3Materialized {
   var customerStorage = new GenericStorage[Customer](sc,"customer")
   var orderStorage = new GenericStorage[Order](sc,"order")
   var lineItemStorage = new GenericStorage[LineItem](sc,"lineItem")
-  var intermediateStorage = new GenericStorage[((Customer,Order)](sc,"Intermediate Storage")
+  var intermediateStorage = new GenericStorage[(Customer,Order)](sc,"Intermediate Storage")
 
 
   var probedCustomer = customerStorage.store(customer)
@@ -49,7 +49,7 @@ object TpcHQ3Materialized {
 
   val customerJoinPredicate = (pair:((Customer, Long),(Order, Long))) => pair._1._1.custKey == pair._2._1.custKey && pair._1._2 < pair._2._2
   val orderJoinPredicate = (pair:((Customer, Long),(Order, Long))) => pair._1._1.custKey == pair._2._1.custKey && pair._2._2 < pair._1._2
-  val lineItemJoinPredicate = (pair:((((Customer,Order),Long),Long),(LineItem, Long))) => pair._1._1._1._2.orderKey == pair._2._1.orderKey && pair._2._2 < pair._1._2
+  val lineItemJoinPredicate = (pair:(((Customer, Order), Long),(LineItem, Long))) => pair._1._1._2.orderKey == pair._2._1.orderKey && pair._2._2 < pair._1._2
   val intermediateJoinPredicate = (pair:(((Customer, Order), Long),(LineItem, Long))) => pair._1._1._2.orderKey == pair._2._1.orderKey && pair._1._2 < pair._2._2
 
 
