@@ -7,9 +7,9 @@ import org.apache.log4j.{Level, Logger}
 import org.apache.spark.rdd.RDD
  import org.apache.spark.streaming.{Minutes, Seconds, StreamingContext}
 
-case class Customer(custKey: Int, mktSegment: String)
-case class Order(orderKey: Int,custKey: Int, orderDate: Date, shipPriority: Int)
-case class LineItem(orderKey: Int, revenue: Double, shipDate: Date)
+//case class Customer(custKey: Int, mktSegment: String)
+//case class Order(orderKey: Int,custKey: Int, orderDate: Date, shipPriority: Int)
+//case class LineItem(orderKey: Int, revenue: Double, shipDate: Date)
 
 object TpcHQ3Materialized {
   Logger.getLogger("org").setLevel(Level.OFF)
@@ -41,7 +41,7 @@ object TpcHQ3Materialized {
   var lineItem  = utils.createKafkaStreamTpch(ssc, config("kafkaServer"), Array("lineitem"), "lineitem",true)
     .map{line =>
       var fields = line.split('|')
-      LineItem(fields(0).toInt, fields(5).toDouble * (1 - fields(6).toDouble),Date.valueOf(fields(10)))
+      LineItem(fields(0).toInt, fields(5).toDouble * (1 - fields(6).toDouble),Date.valueOf(fields(10)),fields(2).toInt)
     }
     .filter(line => line.shipDate.after(Date.valueOf("1995-03-15")))
     .cache()
@@ -66,8 +66,8 @@ object TpcHQ3Materialized {
   val intermediateJoinPredicate = (pair:((((Customer,Order),Long),Long),(LineItem, Long))) => pair._1._1._1._2.orderKey == pair._2._1.orderKey && pair._1._2 < pair._2._2
 
 
-  var customerJoinResult  = customerStorage.join(probedOrder,customerJoinPredicate,orderStorage.storeSize)
-  var orderJoinResult   = orderStorage.joinAsRight(probedCustomer,orderJoinPredicate,customerStorage.storeSize)
+  var customerJoinResult  = customerStorage.join(probedOrder,customerJoinPredicate)
+  var orderJoinResult   = orderStorage.joinAsRight(probedCustomer,orderJoinPredicate)
 
   var intermediateResult  =  customerJoinResult.union(orderJoinResult)
     .transform{intData =>
@@ -77,16 +77,16 @@ object TpcHQ3Materialized {
       intData
     }
 
-//  var probedIntermediate = intermediateStorage
-//                        .store(intermediateResult, aproximateSize =customerStorage.storeSize+orderStorage.storeSize)
-//
-//  var intermediateJoinResult = intermediateStorage
-//                      .join(probedLineItem, intermediateJoinPredicate,lineItemStorage.storeSize,false)
-//
-//  var lineItemJoinResult = lineItemStorage.joinAsRight(probedIntermediate,lineItemJoinPredicate,intermediateStorage.storeSize,false)
-//
-//  var result: DStream[(Long, Long)] =  intermediateJoinResult.union(lineItemJoinResult)
-//    .map(resultRow => (resultRow._1._1._2,System.currentTimeMillis()))
+  var probedIntermediate = intermediateStorage
+                        .store(intermediateResult, aproximateSize =customerStorage.storeSize+orderStorage.storeSize)
+
+  var intermediateJoinResult = intermediateStorage
+                      .joinFinal(probedLineItem, intermediateJoinPredicate)
+
+  var lineItemJoinResult = lineItemStorage.joinAsRightFinal(probedIntermediate,lineItemJoinPredicate)
+
+  var result =  intermediateJoinResult.union(lineItemJoinResult)
+    .map(resultRow => (resultRow._1._1._2,System.currentTimeMillis()))
 //      .cache()
 
 

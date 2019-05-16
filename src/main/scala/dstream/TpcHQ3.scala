@@ -7,9 +7,9 @@ import org.apache.log4j.{Level, Logger}
 import org.apache.spark.streaming.dstream.DStream
 import org.apache.spark.streaming.{Minutes, Seconds, StreamingContext}
 
-case class Customer(custKey: Int, mktSegment: String)
-case class Order(orderKey: Int,custKey: Int, orderDate: Date, shipPriority: Int)
-case class LineItem(orderKey: Int, revenue: Double, shipDate: Date)
+//case class Customer(custKey: Int, mktSegment: String)
+//case class Order(orderKey: Int,custKey: Int, orderDate: Date, shipPriority: Int)
+//case class LineItem(orderKey: Int, revenue: Double, shipDate: Date)
 
 object TpcHQ3 {
   Logger.getLogger("org").setLevel(Level.OFF)
@@ -18,7 +18,7 @@ object TpcHQ3 {
   var sc = spark.sparkContext;
   sc.getConf.registerKryoClasses(Array(classOf[Customer],classOf[Order],classOf[LineItem],classOf[(Customer,Order)]))
 
-  val ssc = new StreamingContext(sc, Seconds(12))
+  val ssc = new StreamingContext(sc, Seconds(4))
 
   var utils = new DStreamUtils
 
@@ -27,24 +27,21 @@ object TpcHQ3 {
       var fields = line.split('|')
       Customer(fields(0).toInt,fields(6))
     }
-    .filter{cust => cust.mktSegment == "BUILDING"  }
-    .cache()
+
 
   var order  =   utils.createKafkaStreamTpch(ssc, config("kafkaServer"), Array("order"), "order",true)
     .map{line =>
       var fields = line.split('|')
       Order(fields(0).toInt, fields(1).toInt, Date.valueOf(fields(4)), fields(7).toInt)
     }
-    .filter(order => order.orderDate.before(Date.valueOf("1995-03-15")))
-    .cache()
+
 
   var lineItem  = utils.createKafkaStreamTpch(ssc, config("kafkaServer"), Array("lineitem"), "lineitem",true)
     .map{line =>
       var fields = line.split('|')
-      LineItem(fields(0).toInt, fields(5).toDouble * (1 - fields(6).toDouble),Date.valueOf(fields(10)))
+      LineItem(fields(0).toInt, fields(5).toDouble * (1 - fields(6).toDouble),Date.valueOf(fields(10)),fields(2).toInt)
     }
-    .filter(line => line.shipDate.after(Date.valueOf("1995-03-15")))
-    .cache()
+
 
 
 
@@ -56,12 +53,12 @@ object TpcHQ3 {
 
   var probedCustomer: DStream[(Customer, Long)] = customerStorage.store(customer)
   var probedOrder = orderStorage.store(order)
-  var probedLineItem = lineItemStorage.store(lineItem)
+  var probedLineItem: DStream[(LineItem, Long)] = lineItemStorage.store(lineItem)
 
 
   val customerJoinPredicate = (pair:((Customer, Long),(Order, Long))) => pair._1._1.custKey == pair._2._1.custKey && pair._1._2 < pair._2._2
   val orderJoinPredicate = (pair:((Customer, Long),(Order, Long))) => pair._1._1.custKey == pair._2._1.custKey && pair._2._2 < pair._1._2
-  val lineItemJoinPredicate = (pair:((((Customer,Order),Long),Long),(LineItem, Long))) => pair._1._1._1._2.orderKey == pair._2._1.orderKey && pair._2._2 < pair._1._2
+  val lineItemJoinPredicate = (pair:(((Customer, Order), Long),(LineItem, Long))) => pair._1._1._2.orderKey == pair._2._1.orderKey && pair._2._2 < pair._1._2
   val intermediateJoinPredicate = (pair:((((Customer,Order),Long),Long),(LineItem, Long))) => pair._1._1._1._2.orderKey == pair._2._1.orderKey && pair._1._2 < pair._2._2
 
   val itemOrderJoinPredicate = (pair:((Order, Long),(LineItem, Long))) => pair._1._1.orderKey == pair._2._1.orderKey && pair._2._2 < pair._1._2
@@ -69,29 +66,31 @@ object TpcHQ3 {
 
 
   // c⋈O⋈L
-  var customerOrderJoin = orderStorage.joinAsRight(probedCustomer,orderJoinPredicate,0L)
-  var output1 =  lineItemStorage.joinAsRight(customerOrderJoin,lineItemJoinPredicate,0L)
+  var customerOrderJoin: DStream[((Customer, Order), Long)] = orderStorage.joinAsRight(probedCustomer,orderJoinPredicate)
+  var output1=  lineItemStorage.joinAsRightFinal(customerOrderJoin,lineItemJoinPredicate)
 
   // o⋈C⋈L
-  var orderCustomerJoin  = customerStorage.join(probedOrder,customerJoinPredicate,orderStorage.storeSize)
-  var output2: DStream[(((Customer, Order), LineItem), Long)] = lineItemStorage.joinAsRight(orderCustomerJoin,lineItemJoinPredicate,0L)
+  var orderCustomerJoin  = customerStorage.join(probedOrder,customerJoinPredicate)
+  var output2 = lineItemStorage.joinAsRightFinal(orderCustomerJoin,lineItemJoinPredicate)
 
   // l⋈O⋈C
-  var lineItemOrderJoin: DStream[((Order, LineItem), Long)] = orderStorage.join(probedLineItem,itemOrderJoinPredicate,orderStorage.storeSize)
-  var output3: DStream[(((Customer, Order), LineItem), Long)]  = customerStorage.join(lineItemOrderJoin,customerOrderJoinPredicate,0L).map(r => (((r._1._1,r._1._2._1),r._1._2._2),r._2))
+  var lineItemOrderJoin: DStream[((Order, LineItem), Long)] = orderStorage.join(probedLineItem,itemOrderJoinPredicate)
+  var  output3
+  = customerStorage.joinFinal(lineItemOrderJoin,customerOrderJoinPredicate)
+      .map(resultRow => (((resultRow._1._1,resultRow._1._2._1),resultRow._1._2._2),resultRow._2,resultRow._3))
+
 
 
   output1
       .union(output2)
       .union(output3)
-      .print
-//    .foreachRDD { resultRDD =>
-//    var resultSize = resultRDD.count()
+      .foreachRDD { resultRDD =>
+    var resultSize = resultRDD.count()
 //    if (resultSize > 0) {
 //      println(s"Result size: ${resultSize}")
 //    }
-//  }
+   }
   println("Waiting for jobs (TPC-H Q3) ")
   ssc.start
-  ssc.awaitTerminationOrTimeout(Minutes(5).milliseconds)
+  ssc.awaitTerminationOrTimeout(Minutes(90).milliseconds)
 }

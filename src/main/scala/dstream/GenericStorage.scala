@@ -22,7 +22,7 @@ class GenericStorage[T] (sc:SparkContext, storeName: String){
     }
   }
 
-  def join[U](rightRel: DStream[(U, Long)],  joinCondition: (((T,Long),(U,Long))) => Boolean,streamSize: Long) = {
+  def join[U](rightRel: DStream[(U, Long)],  joinCondition: (((T,Long),(U,Long))) => Boolean) = {
     var joinResult  = rightRel
       .transform { streamRdd =>
         if(streamRdd.isEmpty() || storeRdd.isEmpty()) {
@@ -31,13 +31,13 @@ class GenericStorage[T] (sc:SparkContext, storeName: String){
         }
         else{
             println(s"Joining in $storeName")
-           computeJoin(storeRdd, streamRdd,joinCondition, rightBroad = streamSize < storeSize)
+           computeJoin(storeRdd, streamRdd,joinCondition)
         }
       }
     joinResult
   }
 
-  def joinAsRight[U](rightRel: DStream[(U, Long)],  joinCondition: (((U,Long),(T,Long))) => Boolean,streamSize: Long) = {
+  def joinAsRight[U](rightRel: DStream[(U, Long)],  joinCondition: (((U,Long),(T,Long))) => Boolean) = {
     var joinResult  = rightRel
       .transform { streamRdd =>
         if(streamRdd.isEmpty || storeRdd.isEmpty) {
@@ -46,15 +46,43 @@ class GenericStorage[T] (sc:SparkContext, storeName: String){
         }
         else{
           println(s"Joining right in $storeName")
-          computeJoinAsRight(storeRdd,streamRdd,joinCondition,rightBroad = streamSize < storeSize)
+          computeJoinAsRight(storeRdd,streamRdd,joinCondition)
         }
       }
     joinResult
   }
 
-  def computeJoin[U](leftRDD: RDD[(T, Long)], rightRDD: RDD[(U, Long)], joinCondition: (((T,Long),(U,Long))) => Boolean,rightBroad: Boolean)  = {
+  def joinFinal[U](rightRel: DStream[(U, Long)],  joinCondition: (((T,Long),(U,Long))) => Boolean) = {
+    var joinResult  = rightRel
+      .transform { streamRdd =>
+        if(streamRdd.isEmpty() || storeRdd.isEmpty()) {
+          var foo: RDD[((T, U),Long,Long)] = sc.emptyRDD
+          foo
+        }
+        else{
+          println(s"Joining in $storeName")
+          computeJoinFinal(storeRdd, streamRdd,joinCondition)
+        }
+      }
+    joinResult
+  }
 
-    if(rightBroad){
+  def joinAsRightFinal[U](rightRel: DStream[(U, Long)],  joinCondition: (((U,Long),(T,Long))) => Boolean) = {
+    var joinResult  = rightRel
+      .transform { streamRdd =>
+        if(streamRdd.isEmpty || storeRdd.isEmpty) {
+          var foo: RDD[((U, T),Long,Long)] = sc.emptyRDD
+          foo
+        }
+        else{
+          println(s"Joining right in $storeName")
+          computeJoinAsRightFinal(storeRdd,streamRdd,joinCondition)
+        }
+      }
+    joinResult
+  }
+
+  def computeJoin[U](leftRDD: RDD[(T, Long)], rightRDD: RDD[(U, Long)], joinCondition: (((T,Long),(U,Long))) => Boolean)  = {
       var broadcastData = sc.broadcast(rightRDD.collect())
       val resultRdd  = leftRDD.mapPartitions{ part =>
           part.flatMap(storedTuple =>
@@ -67,26 +95,11 @@ class GenericStorage[T] (sc:SparkContext, storeName: String){
       broadcastData.unpersist
 
       resultRdd
-    }else{
-      var broadcastData  =  sc.broadcast(leftRDD.collect())
 
-      val resultRdd = rightRDD.mapPartitions{ part =>
-          part.flatMap(storedTuple =>
-            broadcastData.value.map{ broadcastTuple =>
-              (broadcastTuple,storedTuple )
-            })
-       }
-        .filter{case (a,b) => joinCondition((a.asInstanceOf[(T,Long)],b.asInstanceOf[(U,Long)]))}
-        .map{case (a,b) => ((a.asInstanceOf[(T,Long)]._1, b.asInstanceOf[(U,Long)]._1),if(a._2<b._2) a._2 else b._2)}
-      broadcastData.unpersist
-
-      resultRdd
-    }
   }
 
-  def computeJoinAsRight[U](leftRDD: RDD[(T, Long)], rightRDD: RDD[(U, Long)], joinCondition: (((U,Long),(T,Long))) => Boolean,rightBroad: Boolean)  = {
+  def computeJoinAsRight[U](leftRDD: RDD[(T, Long)], rightRDD: RDD[(U, Long)], joinCondition: (((U,Long),(T,Long))) => Boolean)  = {
 
-    if(rightBroad){
       var broadcastData  = sc.broadcast(rightRDD.collect())
       val resultRdd = leftRDD.mapPartitions{ part =>
           part.flatMap(storedTuple =>
@@ -98,19 +111,36 @@ class GenericStorage[T] (sc:SparkContext, storeName: String){
         .map{case (a,b) => ((a.asInstanceOf[(U,Long)]._1, b.asInstanceOf[(T,Long)]._1),if(a._2<b._2) a._2 else b._2)}
       broadcastData.unpersist
       resultRdd
-    }else{
-      var broadcastData  =  sc.broadcast(leftRDD.collect())
-      val resultRdd  = rightRDD.mapPartitions{ part =>
-          part.flatMap(storedTuple =>
-            broadcastData.value.map{ broadcastTuple =>
-              (storedTuple, broadcastTuple)
-            })
+  }
+
+  def computeJoinFinal[U](leftRDD: RDD[(T, Long)], rightRDD: RDD[(U, Long)], joinCondition: (((T,Long),(U,Long))) => Boolean)  = {
+
+      var broadcastData = sc.broadcast(rightRDD.collect())
+      val resultRdd  = leftRDD.mapPartitions{ part =>
+        part.flatMap(storedTuple =>
+          broadcastData.value.map{ broadcastTuple =>
+            (storedTuple, broadcastTuple)
+          })
+      }
+        .filter{case (a,b) => joinCondition((a.asInstanceOf[(T,Long)],b.asInstanceOf[(U,Long)]))}
+        .map{case (a,b) => ((a.asInstanceOf[(T,Long)]._1, b.asInstanceOf[(U,Long)]._1),if(a._2<b._2) a._2 else b._2,System.currentTimeMillis())}
+      broadcastData.unpersist
+
+      resultRdd
+  }
+
+  def computeJoinAsRightFinal[U](leftRDD: RDD[(T, Long)], rightRDD: RDD[(U, Long)], joinCondition: (((U,Long),(T,Long))) => Boolean)  = {
+
+      var broadcastData  = sc.broadcast(rightRDD.collect())
+      val resultRdd = leftRDD.mapPartitions{ part =>
+        part.flatMap(storedTuple =>
+          broadcastData.value.map{ broadcastTuple =>
+            (broadcastTuple, storedTuple)
+          })
       }
         .filter{case (a,b) => joinCondition((a.asInstanceOf[(U,Long)],b.asInstanceOf[(T,Long)]))}
-        .map{case (a,b) =>((a.asInstanceOf[(U,Long)]._1, b.asInstanceOf[(T,Long)]._1),if(a._2<b._2) a._2 else b._2)}
+        .map{case (a,b) => ((a.asInstanceOf[(U,Long)]._1, b.asInstanceOf[(T,Long)]._1),if(a._2<b._2) a._2 else b._2,System.currentTimeMillis())}
       broadcastData.unpersist
       resultRdd
-    }
-
-  }
+     }
 }
