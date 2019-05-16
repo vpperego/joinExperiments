@@ -7,9 +7,9 @@ import org.apache.log4j.{Level, Logger}
  import org.apache.spark.streaming.dstream.DStream
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 
-case class Customer(custKey: Int, mktSegment: String)
-case class Order(orderKey: Int,custKey: Int, orderDate: Date, shipPriority: Int)
-case class LineItem(orderKey: Int, revenue: Double, shipDate: Date, suppKey: Int)
+case class Customer(custKey: Int)
+case class Order(orderKey: Int,custKey: Int)
+case class LineItem(orderKey: Int)
 case class Supplier(suppKey: Int, nationKey: Int)
 case class Nation(nationKey: Int, regionKey: Int)
 case class Region(regionKey: Int, name: String)

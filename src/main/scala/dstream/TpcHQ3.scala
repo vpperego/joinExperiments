@@ -23,24 +23,18 @@ object TpcHQ3 {
   var utils = new DStreamUtils
 
   var customer  = utils.createKafkaStreamTpch(ssc,config("kafkaServer"), Array("customer"), "customer",true)
-    .map{line =>
-      var fields = line.split('|')
-      Customer(fields(0).toInt,fields(6))
-    }
+    .map(_.split('|'))
+    .map(fields => Customer(fields(0).toInt))
 
 
   var order  =   utils.createKafkaStreamTpch(ssc, config("kafkaServer"), Array("order"), "order",true)
-    .map{line =>
-      var fields = line.split('|')
-      Order(fields(0).toInt, fields(1).toInt, Date.valueOf(fields(4)), fields(7).toInt)
-    }
+    .map(_.split('|'))
+    .map(fields =>  Order(fields(0).toInt, fields(1).toInt))
 
 
   var lineItem  = utils.createKafkaStreamTpch(ssc, config("kafkaServer"), Array("lineitem"), "lineitem",true)
-    .map{line =>
-      var fields = line.split('|')
-      LineItem(fields(0).toInt, fields(5).toDouble * (1 - fields(6).toDouble),Date.valueOf(fields(10)),fields(2).toInt)
-    }
+    .map(_.split('|'))
+    .map(fields => LineItem(fields(0).toInt))
 
 
 

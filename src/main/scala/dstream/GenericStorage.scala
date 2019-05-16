@@ -22,6 +22,20 @@ class GenericStorage[T] (sc:SparkContext, storeName: String){
     }
   }
 
+  def storeWithTimestamp (source: DStream[(T, Long)],aproximateSize:Long =0L): DStream[(T, Long)] = {
+    source.transform{ streamedRdd =>
+       if(!streamedRdd.isEmpty()){
+        storeRdd = storeRdd.union(streamedRdd)
+          .setName(storeName)
+
+        storeRdd = storeRdd.cache()
+         streamedRdd
+      }else{
+        sc.emptyRDD
+      }
+    }
+  }
+
   def join[U](rightRel: DStream[(U, Long)],  joinCondition: (((T,Long),(U,Long))) => Boolean) = {
     var joinResult  = rightRel
       .transform { streamRdd =>
