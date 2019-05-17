@@ -96,8 +96,8 @@ object TpcHQ3Materialized {
       }
     }
 
-  println("Waiting for jobs (TPC-H Q3) ")
+  println("Waiting for jobs (TPC-H Q3 Materialized) ")
 
   ssc.start
-  ssc.awaitTerminationOrTimeout(Minutes(5).milliseconds)
+  ssc.awaitTerminationOrTimeout(Minutes(config("waitingTime").toInt).milliseconds)
 }

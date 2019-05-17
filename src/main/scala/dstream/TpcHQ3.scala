@@ -2,6 +2,7 @@ package dstream
 
 import java.sql.Date
 
+import dstream.TpcHQ3Materialized.ssc
 import main.startup.{config, spark}
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.streaming.dstream.DStream
@@ -81,10 +82,10 @@ object TpcHQ3 {
       .foreachRDD { resultRDD =>
     var resultSize = resultRDD.count()
 //    if (resultSize > 0) {
-//      println(s"Result size: ${resultSize}")
+      println(s"Result size: ${resultSize}")
 //    }
    }
   println("Waiting for jobs (TPC-H Q3) ")
   ssc.start
-  ssc.awaitTerminationOrTimeout(Minutes(90).milliseconds)
+  ssc.awaitTerminationOrTimeout(Minutes(config("waitingTime").toInt).milliseconds)
 }
