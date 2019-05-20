@@ -72,7 +72,7 @@ object TpcHQ3Materialized {
 
   result
       .map(outputRow => (outputRow._1._1._2,outputRow._3)  )
-     .saveAsTextFiles(config("hadoopFileName")+"-" +sc.applicationId)
+    .saveAsTextFiles(config("hadoopFileName")+"/" +sc.applicationId+ "/")
 
   println("Waiting for jobs (TPC-H Q3 Materialized) ")
 
