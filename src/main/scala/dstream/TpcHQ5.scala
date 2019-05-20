@@ -9,75 +9,56 @@ import org.apache.spark.streaming.{Seconds, StreamingContext}
 
 case class Customer(custKey: Int)
 case class Order(orderKey: Int,custKey: Int)
-case class LineItem(orderKey: Int)
+case class LineItem(orderKey: Int,suppKey: Int)
 case class Supplier(suppKey: Int, nationKey: Int)
 case class Nation(nationKey: Int, regionKey: Int)
-case class Region(regionKey: Int, name: String)
+case class Region(regionKey: Int)
 
 
 
 object TpcHQ5 {
-//  Logger.getLogger("org").setLevel(Level.OFF)
-//  Logger.getLogger("akka").setLevel(Level.OFF)
-//
-//  var sc = spark.sparkContext;
-//  sc.getConf.registerKryoClasses(Array(classOf[Customer],classOf[Order],classOf[LineItem],classOf[(Customer,Order)]))
-//
-//  val ssc = new StreamingContext(sc, Seconds(12))
-//
-//  var utils = new DStreamUtils
-//
-//  var customer: DStream[Customer] = utils.createKafkaStreamTpch(ssc,config("kafkaServer"), Array("customer"), "customer",true)
-//    .map{line =>
-//      var fields = line.split('|')
-//      Customer(fields(0).toInt,fields(6))
-//    }
-//    .filter{cust => cust.mktSegment == "BUILDING"  }
-//    .cache()
-//
-//  var order  =   utils.createKafkaStreamTpch(ssc, config("kafkaServer"), Array("order"), "order",true)
-//    .map{line =>
-//      var fields = line.split('|')
-//      Order(fields(0).toInt, fields(1).toInt, Date.valueOf(fields(4)), fields(7).toInt)
-//    }
-//    .filter(order => order.orderDate.before(Date.valueOf("1995-03-15")))
-//    .cache()
-//
-//  var lineItem  = utils.createKafkaStreamTpch(ssc, config("kafkaServer"), Array("lineitem"), "lineitem",true)
-//    .map{line =>
-//      var fields = line.split('|')
-//      LineItem(fields(0).toInt, fields(5).toDouble * (1 - fields(6).toDouble),Date.valueOf(fields(10)),fields(2).toInt)
-//    }
-//    .filter(line => line.shipDate.after(Date.valueOf("1995-03-15")))
-//    .cache()
-//
-//
-//  var supplier: DStream[Supplier] = utils.createKafkaStreamTpch(ssc, config("kafkaServer"), Array("lineitem"), "supplier",true)
-//    .map{line =>
-//      var fields = line.split('|')
-//      Supplier(fields(0).toInt,  fields(3).toInt)
-//    }
-//     .cache()
-////  var nation  = utils.createKafkaStreamTpch(ssc, config("kafkaServer"), Array("lineitem"), "nation",true)
-////    .map{line =>
-////      var fields = line.split('|')
-////      LineItem(fields(0).toInt, fields(5).toDouble * (1 - fields(6).toDouble),Date.valueOf(fields(10)))
-////    }
-////    .filter(line => line.shipDate.after(Date.valueOf("1995-03-15")))
-////    .cache()
-////  var region  = utils.createKafkaStreamTpch(ssc, config("kafkaServer"), Array("lineitem"), "region",true)
-////    .map{line =>
-////      var fields = line.split('|')
-////      LineItem(fields(0).toInt, fields(5).toDouble * (1 - fields(6).toDouble),Date.valueOf(fields(10)))
-////    }
-////    .filter(line => line.shipDate.after(Date.valueOf("1995-03-15")))
-////    .cache()
-//
-//
-//  var customerStorage = new GenericStorage[Customer](sc,"customer")
-//  var orderStorage = new GenericStorage[Order](sc,"order")
-//  var lineItemStorage = new GenericStorage[LineItem](sc,"lineItem")
-//  var supplierStorage = new GenericStorage[Supplier](sc,"supplier")
+  Logger.getLogger("org").setLevel(Level.OFF)
+  Logger.getLogger("akka").setLevel(Level.OFF)
+
+  var sc = spark.sparkContext
+  sc.getConf.registerKryoClasses(Array(classOf[Customer],classOf[Order],classOf[LineItem],classOf[(Customer,Order)]))
+
+  val ssc = new StreamingContext(sc, Seconds(12))
+
+  var utils = new DStreamUtils
+
+  var customer: DStream[Customer] = utils.createKafkaStreamTpch(ssc,config("kafkaServer"), Array("customer"), "customer",true)
+    .map(_.split('|'))
+    .map(fields => Customer(fields(0).toInt))
+
+ var order  =   utils.createKafkaStreamTpch(ssc, config("kafkaServer"), Array("order"), "order",true)
+   .map(_.split('|'))
+   .map(fields =>  Order(fields(0).toInt, fields(1).toInt))
+  var lineItem  = utils.createKafkaStreamTpch(ssc, config("kafkaServer"), Array("lineitem"), "lineitem",true)
+    .map(_.split('|'))
+    .map(fields => LineItem(fields(0).toInt,fields(2).toInt))
+
+
+  var supplier: DStream[Supplier] = utils.createKafkaStreamTpch(ssc, config("kafkaServer"), Array("lineitem"), "supplier",true)
+    .map(_.split('|'))
+    .map(fields => Supplier(fields(0).toInt,  fields(3).toInt))
+
+  var nation  = utils.createKafkaStreamTpch(ssc, config("kafkaServer"), Array("lineitem"), "nation",true)
+    .map(_.split('|'))
+    .map(fields => Nation(fields(0).toInt,fields(2).toInt))
+
+
+
+  var region  = utils.createKafkaStreamTpch(ssc, config("kafkaServer"), Array("lineitem"), "region",true)
+    .map(_.split('|'))
+    .map(fields => Region(fields(0).toInt))
+
+
+
+  var customerStorage = new GenericStorage[Customer](sc,"customer")
+  var orderStorage = new GenericStorage[Order](sc,"order")
+  var lineItemStorage = new GenericStorage[LineItem](sc,"lineItem")
+  var supplierStorage = new GenericStorage[Supplier](sc,"supplier")
 //  var intermediateStorage = new GenericStorage[((Customer,Order),Long)](sc,"Intermediate Result")
 //
 //

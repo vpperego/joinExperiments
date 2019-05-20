@@ -8,9 +8,7 @@ import org.apache.log4j.{Level, Logger}
 import org.apache.spark.streaming.dstream.DStream
 import org.apache.spark.streaming.{Minutes, Seconds, StreamingContext}
 
-//case class Customer(custKey: Int, mktSegment: String)
-//case class Order(orderKey: Int,custKey: Int, orderDate: Date, shipPriority: Int)
-//case class LineItem(orderKey: Int, revenue: Double, shipDate: Date)
+
 
 object TpcHQ3 {
   Logger.getLogger("org").setLevel(Level.OFF)
@@ -35,10 +33,7 @@ object TpcHQ3 {
 
   var lineItem  = utils.createKafkaStreamTpch(ssc, config("kafkaServer"), Array("lineitem"), "lineitem",true)
     .map(_.split('|'))
-    .map(fields => LineItem(fields(0).toInt))
-
-
-
+    .map(fields => LineItem(fields(0).toInt,fields(2).toInt))
 
 
   var customerStorage = new GenericStorage[Customer](sc,"customer")
@@ -46,9 +41,10 @@ object TpcHQ3 {
   var lineItemStorage = new GenericStorage[LineItem](sc,"lineItem")
 
 
-  var probedCustomer: DStream[(Customer, Long)] = customerStorage.store(customer)
+  var probedCustomer = customerStorage.store(customer)
   var probedOrder = orderStorage.store(order)
-  var probedLineItem: DStream[(LineItem, Long)] = lineItemStorage.store(lineItem)
+  var probedLineItem = lineItemStorage.store(lineItem)
+
 
 
   val customerJoinPredicate = (pair:((Customer, Long),(Order, Long))) => pair._1._1.custKey == pair._2._1.custKey && pair._1._2 < pair._2._2
@@ -80,9 +76,9 @@ object TpcHQ3 {
       .union(output2)
       .union(output3)
       .foreachRDD { resultRDD =>
-    var resultSize = resultRDD.count()
+//      var resultSize = resultRDD.count()
 //    if (resultSize > 0) {
-      println(s"Result size: ${resultSize}")
+      println(s"Result size: ${resultRDD.count()}")
 //    }
    }
   println("Waiting for jobs (TPC-H Q3) ")
