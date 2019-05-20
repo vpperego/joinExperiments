@@ -45,7 +45,7 @@ object TpcHQ5 {
 
   var nation  = utils.createKafkaStreamTpch(ssc, config("kafkaServer"), Array("lineitem"), "nation",true)
     .map(_.split('|'))
-    .map(fields => Nation(fields(0).toInt,fields(2).toInt))
+    .map(fields => Nation(fields  (0).toInt,fields(2).toInt))
 
 
 
