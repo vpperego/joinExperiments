@@ -58,41 +58,41 @@ object DStreamStoredJoin {
 //       var resultSize = resultRDD.count()
 //       if (resultSize>0) {
 //         println(s"Result size: $resultSize")
-////          println(s"End = ${resultRDD.sortBy(_._3).max()._3 - resultRDD.sortBy(_._2).min()._2}")
-////         resultRDD.saveAsTextFile("hdfs:/user/vinicius/tpchQ3Times")
-////            resultRDD.saveAsTextFile("file:///tmp/result")
-////            var startTime =  resultRDD.keys.min()
-////             var endTime   =  resultRDD.values.max()
-////           println(s"Time = ${endTime-startTime} ms")
-//
-////         val props = new Properties()
-////         props.put("bootstrap.servers",configBroadcast.value("kafkaServer") )
-////         props.put("client.id", "kafkaProducer")
-////         props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
-////         props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
-////         val producer = new KafkaProducer[String, String](props)
-////         val data = new ProducerRecord[String, String](configBroadcast.value("kafkaTopicOutput"), resultSize.toString())
-////         producer.send(data)
-////         producer.close()
+//          println(s"End = ${resultRDD.sortBy(_._3).max()._3 - resultRDD.sortBy(_._2).min()._2}")
+//         resultRDD.saveAsTextFile("hdfs:/user/vinicius/tpchQ3Times")
+//            resultRDD.saveAsTextFile("file:///tmp/result")
+//            var startTime =  resultRDD.keys.min()
+//             var endTime   =  resultRDD.values.max()
+//           println(s"Time = ${endTime-startTime} ms")
+
+//         val props = new Properties()
+//         props.put("bootstrap.servers",configBroadcast.value("kafkaServer") )
+//         props.put("client.id", "kafkaProducer")
+//         props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
+//         props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
+//         val producer = new KafkaProducer[String, String](props)
+//         val data = new ProducerRecord[String, String](configBroadcast.value("kafkaTopicOutput"), resultSize.toString())
+//         producer.send(data)
+//         producer.close()
 //       }
+
+
+//       if (resultSize > 0) {
+//         println(s"output size: $resultSize")
+//         resultRDD.foreachPartition { part =>
+//           val props = new Properties()
+//           props.put("bootstrap.servers",configBroadcast.value("kafkaServer") )
+//           props.put("client.id", "kafkaProducer")
+//           props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
+//           props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
+//           val producer = new KafkaProducer[String, String](props)
+//           part.foreach { row =>
+//             val data = new ProducerRecord[String, String](configBroadcast.value("kafkaTopicOutput"), row.toString())
+//             producer.send(data)
 //
-//
-////       if (resultSize > 0) {
-////         println(s"output size: $resultSize")
-////         resultRDD.foreachPartition { part =>
-////           val props = new Properties()
-////           props.put("bootstrap.servers",configBroadcast.value("kafkaServer") )
-////           props.put("client.id", "kafkaProducer")
-////           props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
-////           props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
-////           val producer = new KafkaProducer[String, String](props)
-////           part.foreach { row =>
-////             val data = new ProducerRecord[String, String](configBroadcast.value("kafkaTopicOutput"), row.toString())
-////             producer.send(data)
-////
-////           }
-////           producer.close()
-////         }
+//           }
+//           producer.close()
+//         }
 //       }
 //
 //  println("Waiting for jobs (DStreamStoredJoin)")

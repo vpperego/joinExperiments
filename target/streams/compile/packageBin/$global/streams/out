@@ -1,17 +1,1 @@
-[0m[[0m[0minfo[0m] [0m[0mPackaging /home/vinicius/IdeaProjects/joinExperiments/target/scala-2.11/joinexperiments_2.11-0.1.jar ...[0m
-[0m[[0m[0mdebug[0m] [0m[0mInput file mappings:[0m
-[0m[[0m[0mdebug[0m] [0m[0m	kafkaConsumer.class[0m
-[0m[[0m[0mdebug[0m] [0m[0m	  /home/vinicius/IdeaProjects/joinExperiments/target/scala-2.11/classes/kafkaConsumer.class[0m
-[0m[[0m[0mdebug[0m] [0m[0m	kafkaConsumer$.class[0m
-[0m[[0m[0mdebug[0m] [0m[0m	  /home/vinicius/IdeaProjects/joinExperiments/target/scala-2.11/classes/kafkaConsumer$.class[0m
-[0m[[0m[0mdebug[0m] [0m[0m	kafkaProducer$delayedInit$body.class[0m
-[0m[[0m[0mdebug[0m] [0m[0m	  /home/vinicius/IdeaProjects/joinExperiments/target/scala-2.11/classes/kafkaProducer$delayedInit$body.class[0m
-[0m[[0m[0mdebug[0m] [0m[0m	kafkaProducer.class[0m
-[0m[[0m[0mdebug[0m] [0m[0m	  /home/vinicius/IdeaProjects/joinExperiments/target/scala-2.11/classes/kafkaProducer.class[0m
-[0m[[0m[0mdebug[0m] [0m[0m	kafkaProducer$.class[0m
-[0m[[0m[0mdebug[0m] [0m[0m	  /home/vinicius/IdeaProjects/joinExperiments/target/scala-2.11/classes/kafkaProducer$.class[0m
-[0m[[0m[0mdebug[0m] [0m[0m	kafkaConsumer$delayedInit$body.class[0m
-[0m[[0m[0mdebug[0m] [0m[0m	  /home/vinicius/IdeaProjects/joinExperiments/target/scala-2.11/classes/kafkaConsumer$delayedInit$body.class[0m
-[0m[[0m[0mdebug[0m] [0m[0m	kafkaConsumer$$typecreator4$1.class[0m
-[0m[[0m[0mdebug[0m] [0m[0m	  /home/vinicius/IdeaProjects/joinExperiments/target/scala-2.11/classes/kafkaConsumer$$typecreator4$1.class[0m
-[0m[[0m[0minfo[0m] [0m[0mDone packaging.[0m
+[0m[[0m[0mdebug[0m] [0m[0mJar uptodate: /Users/vinicius/IdeaProjects/joinGermany/joinExperiments/target/scala-2.11/joinexperiments_2.11-0.1.jar[0m

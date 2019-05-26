@@ -37,5 +37,5 @@ object TpcHQ3Batch {
     .count()
 
 
-    println("Result size: " + p)
+  println("Result size: " + p)
 }

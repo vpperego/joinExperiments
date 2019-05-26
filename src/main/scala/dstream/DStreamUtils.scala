@@ -9,7 +9,25 @@ package dstream
  import org.apache.spark.streaming.kafka010.LocationStrategies.PreferConsistent
 
 class DStreamUtils {
-   def createKafkaStreamTpch(ssc: StreamingContext,serverName: String,topicName: Array[String],groupName: String, earliestOffset: Boolean=false): DStream[String] ={
+
+   def createKafkaStream (ssc: StreamingContext,serverName: String,topicName: Array[String],groupName: String): DStream[Int] ={
+        val kafkaParams = Map[String, Object](
+          "bootstrap.servers" -> config("kafkaServer"),
+          "key.deserializer" -> classOf[StringDeserializer],
+          "value.deserializer" -> classOf[StringDeserializer],
+          "group.id" -> groupName,
+          "auto.offset.reset" -> "latest",
+          "enable.auto.commit" -> (false: java.lang.Boolean)
+        )
+
+        KafkaUtils.createDirectStream[String, String](
+          ssc,
+          PreferConsistent,
+          Subscribe[String, String](topicName, kafkaParams)
+        )      .map(row => row.value.toInt)
+  }
+
+  def createKafkaStreamTpch(ssc: StreamingContext,serverName: String,topicName: Array[String],groupName: String, earliestOffset: Boolean=false): DStream[String] ={
     val kafkaParams = Map[String, Object](
       "bootstrap.servers" -> config("kafkaServer"),
       "key.deserializer" -> classOf[StringDeserializer],

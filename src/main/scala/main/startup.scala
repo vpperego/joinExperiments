@@ -40,12 +40,8 @@ object startup extends App {
     case "DStreamStoredJoin" => DStreamStoredJoin
     case "TwoStreamsStoredJoin" => TwoStreamsStoredJoin
     case "TpcHQ3" => dstream.TpcHQ3
-    case "TpcHQ3Materialized" => dstream.TpcHQ3Materialized
-    case "TpcHQ5" => dstream.TpcHQ5
     case "TpcHQ3Batch" => TpcHQ3Batch
-    case "TpcHQ5Batch" => TpcHQ5Batch
     case "SSStoredJoin" => SSStoredJoin
-    case "WindowJoin" => dstream.WindowJoin
     case _ => None
   }
 

@@ -39,6 +39,7 @@ object batchJoin {
 
     var total = finalResult.count
 
+
     val props = new Properties()
     props.put("bootstrap.servers", config("kafkaServer"))
     props.put("client.id", "kafkaProducer")
