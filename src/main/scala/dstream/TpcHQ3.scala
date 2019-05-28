@@ -7,7 +7,7 @@ import org.apache.spark.streaming.{Minutes, Seconds, StreamingContext}
 
 case class Customer(custKey: Int)
 case class Order(orderKey: Int,custKey: Int)
-case class LineItem(orderKey: Int)
+case class LineItem(orderKey: Int,suppKey: Int)
 
 object TpcHQ3 {
   Logger.getLogger("org").setLevel(Level.OFF)
@@ -36,7 +36,7 @@ object TpcHQ3 {
   var lineItem  = utils.createKafkaStreamTpch(ssc, config("kafkaServer"), Array("lineitem"), "lineitem",true)
     .map{line =>
       var fields = line.split('|')
-      LineItem(fields(0).toInt)
+      LineItem(fields(0).toInt,fields(2).toInt)
     }
 
 
