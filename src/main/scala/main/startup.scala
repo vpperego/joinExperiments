@@ -4,7 +4,6 @@ package main
 import dstream._
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.sql.SparkSession
-import structuredStreaming._
 
 
 object startup extends App {
@@ -32,16 +31,11 @@ object startup extends App {
   val configBroadcast: Broadcast[Map[String, String]] = spark.sparkContext.broadcast(config)
 
   config("class") match {
-    case "innerJoin" =>
-      spark.conf.set("spark.sql.forceCrossJoin", config("forceCrossJoin"))
-      innerJoin.run
-    case "kafkaConsumer" => kafkaConsumer.run
     case "batchJoin" => batchJoin.run
     case "DStreamStoredJoin" => DStreamStoredJoin
     case "TwoStreamsStoredJoin" => TwoStreamsStoredJoin
     case "TpcHQ3" => dstream.TpcHQ3
     case "TpcHQ3Batch" => TpcHQ3Batch
-    case "SSStoredJoin" => SSStoredJoin
     case _ => None
   }
 
