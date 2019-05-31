@@ -88,6 +88,9 @@ object Q3Window {
 
   intermediateJoinResult
     .union(lineItemJoinResult)
+    .map{outputRow =>
+      (outputRow._1._1._1._2, outputRow._1._1._2._2,outputRow._1._2,outputRow._2._2)
+    }
     .saveAsTextFiles(config("hadoopFileName")+"/" +sc.applicationId+ "/")
 
 
