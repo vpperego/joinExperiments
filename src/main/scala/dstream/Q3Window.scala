@@ -61,38 +61,36 @@ object Q3Window {
   }
   )
 
-  var probedIntermediate  = customerJoinResult
+  var probedIntermediate: DStream[(((Customer, Long), (Order, Long)), Long)] = customerJoinResult
     .union(orderJoinResult)
-    .map(r => ((r._1._1,r._2._1),System.currentTimeMillis()))
+    .map(r => ((r._1,r._2),System.currentTimeMillis()))
 
-
-  var intermediateStorage: DStream[((Customer, Order), Long)] = probedIntermediate
+  var intermediateStorage: DStream[(((Customer, Long), (Order, Long)), Long)] = probedIntermediate
     .window(Minutes(config("windowTime").toInt))
 
-
-  var intermediateJoinResult = intermediateStorage.transformWith(probedLineItem,{ (intermediateRdd:RDD[((Customer, Order), Long)], lineItemRdd:RDD[(LineItem,Long)]) =>
+  var intermediateJoinResult = intermediateStorage.transformWith(probedLineItem,{ (intermediateRdd:RDD[(((Customer, Long), (Order, Long)), Long)], lineItemRdd:RDD[(LineItem,Long)]) =>
     intermediateRdd
       .cartesian(lineItemRdd)
-      .filter { case (intermediateRow: ((Customer, Order), Long), lineItemRow: (LineItem, Long)) =>
-          intermediateRow._1._2.orderKey == lineItemRow._1.orderKey  && intermediateRow._2 < lineItemRow._2
+      .filter { case (intermediateRow: (((Customer, Long), (Order, Long)), Long), lineItemRow: (LineItem, Long)) =>
+            intermediateRow._1._2._1.orderKey == lineItemRow._1.orderKey && intermediateRow._2 < lineItemRow._2
       }
   }
   )
 
-  var lineItemJoinResult = lineItemStorage.transformWith(probedIntermediate,{ (lineItemRdd:RDD[(LineItem,Long)], intermediateRdd:RDD[((Customer, Order), Long)]) =>
-    intermediateRdd
-      .cartesian(lineItemRdd)
-      .filter { case (intermediateRow: ((Customer, Order), Long), lineItemRow: (LineItem, Long)) =>
-        intermediateRow._1._2.orderKey == lineItemRow._1.orderKey  &&  lineItemRow._2 < intermediateRow._2
+  var lineItemJoinResult: DStream[((((Customer, Long), (Order, Long)), Long), (LineItem, Long))] = lineItemStorage.transformWith(probedIntermediate,{ (lineItemRdd:RDD[(LineItem,Long)], intermediateRdd:RDD[(((Customer, Long), (Order, Long)), Long)]) =>
+        intermediateRdd
+          .cartesian(lineItemRdd)
+          .filter { case (intermediateRow: (((Customer, Long), (Order, Long)), Long), lineItemRow: (LineItem, Long)) =>
+            intermediateRow._1._2._1.orderKey == lineItemRow._1.orderKey && intermediateRow._2 < lineItemRow._2
+          }
       }
-  }
   )
 
   intermediateJoinResult
     .union(lineItemJoinResult)
-    .foreachRDD(resultRDD =>
-      println(s"Result size: ${resultRDD.count}")
-    )
+    .saveAsTextFiles(config("hadoopFileName")+"/" +sc.applicationId+ "/")
+
+
   println("Waiting for jobs (TPC-H Q3 Window) ")
 
   ssc.start()
