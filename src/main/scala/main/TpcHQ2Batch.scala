@@ -15,7 +15,7 @@ case class Region(regionKey: Int)
 object TpcHQ2Batch {
   Logger.getLogger("org").setLevel(Level.OFF)
   Logger.getLogger("akka").setLevel(Level.OFF)
-  println("Starting  TPC-H Q3 - Batch ")
+  println("Starting  TPC-H Q2 - Batch ")
 
   import spark.implicits._
 

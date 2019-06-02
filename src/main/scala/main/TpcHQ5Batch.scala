@@ -4,8 +4,6 @@ import main.startup.{config, spark}
 import org.apache.log4j.{Level, Logger}
 
 case class Supplier(suppKey: Int, nationKey: Int)
-case class Nation(nationKey: Int, regionKey: Int)
-case class Region(regionKey: Int)
 
 object TpcHQ5Batch {
 
