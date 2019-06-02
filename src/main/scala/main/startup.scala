@@ -38,8 +38,10 @@ object startup extends App {
     case "Q3Window" => dstream.Q3Window
     case "TpcHQ3Multi" => dstream.TpcHQ3Multi
     case "TpcHQ5" => dstream.TpcHQ5
+    case "TpcHQ2" => dstream.TpcHQ2
     case "TpcHQ3Batch" => TpcHQ3Batch
     case "TpcHQ5Batch" => TpcHQ5Batch
+    case "TpcHQ2Batch" => TpcHQ2Batch
     case _ => None
   }
 

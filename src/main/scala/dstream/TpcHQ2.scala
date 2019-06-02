@@ -37,7 +37,7 @@ object TpcHQ2 {
 
   var nation  = utils.createKafkaStreamTpch(ssc, config("kafkaServer"), Array("nation"), "nation", true)
     .map(_.split('|'))
-    .map(fields => Nation(fields(0).toInt,fields(2).toInt))
+    .map(fields => Nation(fields(0).toInt,      fields(2).toInt))
 
   var region  = utils.createKafkaStreamTpch(ssc, config("kafkaServer"), Array("region"), "region", true)
     .map(_.split('|'))
@@ -96,12 +96,12 @@ object TpcHQ2 {
   var nationJoinResult = nationStorage
     .joinAsRight(probedpartsSupp,nationJoinPredicate,0L)
 
-  var partSuppNationResult  = partSuppNationIntermediateResult
+  var partSuppNationResult: DStream[((((((Part, PartSupp), Long), Supplier), Long), Nation), Long)] = partSuppNationIntermediateResult
     .union(nationJoinResult)
     .map(outputRow => (outputRow._1,outputRow._2))
 
 
-  var probedpartsSuppNation: DStream[(((((((Part, PartSupp), Long), Supplier), Long), Nation), Long), Long)] = partsSuppNationIntermediateStorage.store(partSuppNationResult)
+  var probedpartsSuppNation= partsSuppNationIntermediateStorage.store(partSuppNationResult)
 
   var finalIntermediateResult = partsSuppNationIntermediateStorage.join(probedRegion,partsSuppNationJoinPredicate, 0L)
   var regionJoinResult = regionStorage.joinAsRight(probedpartsSuppNation, regionJoinPredicate,0L)
@@ -112,7 +112,6 @@ object TpcHQ2 {
 
   result
     .saveAsTextFiles(config("hadoopFileName")+"/" +sc.applicationId+ "/")
-
   println("Waiting for jobs (TPC-H Q2)")
 
   ssc.start

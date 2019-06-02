@@ -6,10 +6,6 @@ import org.apache.spark.streaming.dstream.DStream
 import org.apache.spark.streaming.{Minutes, Seconds, StreamingContext}
 
 case class Supplier(suppKey: Int, nationKey: Int)
-case class Nation(nationKey: Int, regionKey: Int)
-case class Region(regionKey: Int)
-
-
 
 object TpcHQ5 {
   Logger.getLogger("org").setLevel(Level.OFF)
