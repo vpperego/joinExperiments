@@ -27,7 +27,7 @@ object TpcHQ2 {
     .map(fields => Part(fields(0).toInt))
 
 
-  var partSupp = utils.createKafkaStreamTpch(ssc, config("kafkaServer"), Array("partSupp"), "partSupp", true)
+  var partSupp = utils.createKafkaStreamTpch(ssc, config("kafkaServer"), Array("partsupp"), "partsupp", true)
     .map(_.split('|'))
     .map(fields => PartSupp(fields(0).toInt,  fields(1).toInt))
 
