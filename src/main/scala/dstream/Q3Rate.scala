@@ -16,9 +16,6 @@ object Q3Rate {
 
   var utils = new DStreamUtils
 
-
-  sc.getConf.set("spark.streaming.kafka.maxRatePerPartition",config("streamRate"))
-
   var customer  = utils.createKafkaStreamTpch(ssc,config("kafkaServer"), Array("customer"), "customer",true)
     .map{line =>
       var fields = line.split('|')
@@ -78,7 +75,7 @@ object Q3Rate {
     //
     .saveAsTextFiles(config("hadoopFileName")+"/" +sc.applicationId+ "/")
 
-  println("Waiting for jobs (TPC-H Q3) ")
+  println("Waiting for jobs (TPC-H Q3) - Rate")
 
   ssc.start
   ssc.awaitTerminationOrTimeout(Minutes(config("waitingTime").toInt).milliseconds)
