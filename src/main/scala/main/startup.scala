@@ -44,6 +44,7 @@ object startup extends App {
     case "TpcHQ3Batch" => TpcHQ3Batch
     case "TpcHQ5Batch" => TpcHQ5Batch
     case "TpcHQ2Batch" => TpcHQ2Batch
+    case "SSQ3" => SSQ3
     case _ => None
   }
 
