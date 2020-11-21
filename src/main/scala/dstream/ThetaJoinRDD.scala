@@ -41,13 +41,13 @@ class ThetaJoinRDD(sc: SparkContext, var rdd1 : RDD[Int], var rdd2 : RDD[Int], j
 }
 
 
-class ThetaJoin(rdd: RDD[Int]) {
+class ThetaJoin(rdd: RDD[Int]) extends Serializable {
   def thetaJoin(otherRdd: RDD[Int], joinPredicate: (Int, Int) => Boolean) = {
     new ThetaJoinRDD(SparkSession.getActiveSession.get.sparkContext, rdd, otherRdd, joinPredicate)
   }
 }
 
-object ThetaJoin {
-  implicit def addCustomFunctions(rdd: RDD[Int]) = new
+object ThetaJoin extends Serializable {
+  implicit def addThetaJoinFunction(rdd: RDD[Int]) = new
       ThetaJoin(rdd)
 }
