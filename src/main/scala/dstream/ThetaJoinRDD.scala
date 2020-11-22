@@ -3,6 +3,7 @@ package dstream
 import org.apache.spark.{Partition, SparkContext, TaskContext}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SparkSession
+import scala.reflect.ClassTag
 
 class ThetaJoinPartition(
                           idx: Int,
@@ -17,11 +18,11 @@ class ThetaJoinPartition(
 
 }
 
-class ThetaJoinRDD(sc: SparkContext, var rdd1 : RDD[Int], var rdd2 : RDD[Int], joinPredicate: (Int, Int) => Boolean) extends RDD[(Int, Int)](sc, Nil) with Serializable
+class ThetaJoinRDD [T: ClassTag, U: ClassTag](sc: SparkContext, var rdd1 : RDD[T], var rdd2 : RDD[U], joinPredicate: (T, U) => Boolean) extends RDD[(T, U)](sc, Nil) with Serializable
 {
   val numPartitionsInRdd2 = rdd2.partitions.length
 
-  override def compute(split: Partition, context: TaskContext): Iterator[(Int, Int)] = {
+  override def compute(split: Partition, context: TaskContext): Iterator[(T, U)] = {
     val currSplit = split.asInstanceOf[ThetaJoinPartition]
     rdd1.iterator(currSplit.s1, context).flatMap{x =>
       rdd2.iterator(currSplit.s2, context).flatMap{ y=>
@@ -40,14 +41,13 @@ class ThetaJoinRDD(sc: SparkContext, var rdd1 : RDD[Int], var rdd2 : RDD[Int], j
   }
 }
 
-
-class ThetaJoin(rdd: RDD[Int]) extends Serializable {
-  def thetaJoin(otherRdd: RDD[Int], joinPredicate: (Int, Int) => Boolean) = {
+class ThetaJoin[T: ClassTag](rdd: RDD[T]) extends Serializable {
+  def thetaJoin[U: ClassTag](otherRdd: RDD[U], joinPredicate: (T, U) => Boolean): ThetaJoinRDD[T, U] = {
     new ThetaJoinRDD(SparkSession.getActiveSession.get.sparkContext, rdd, otherRdd, joinPredicate)
   }
 }
 
 object ThetaJoin extends Serializable {
-  implicit def addThetaJoinFunction(rdd: RDD[Int]) = new
+  implicit def addThetaJoinFunction[T: ClassTag] (rdd: RDD[T]) = new
       ThetaJoin(rdd)
 }
