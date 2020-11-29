@@ -1,7 +1,7 @@
 package main
 
 
-import dstream._
+import BroadcastJoin._
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.sql.SparkSession
 
@@ -34,7 +34,7 @@ object startup extends App {
     case "batchJoin" => batchJoin.run
     case "DStreamStoredJoin" => DStreamStoredJoin
     case "TwoStreamsStoredJoin" => TwoStreamsStoredJoin
-    case "TpcHQ3" => dstream.TpcHQ3
+    case "TpcHQ3" => BroadcastJoin.TpcHQ3
     case "TpcHQ3Batch" => TpcHQ3Batch
     case _ => None
   }

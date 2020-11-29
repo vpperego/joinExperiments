@@ -1,4 +1,4 @@
-package dstream
+package BroadcastJoin
 
 import main.startup.{config, spark}
 import org.apache.log4j.{Level, Logger}

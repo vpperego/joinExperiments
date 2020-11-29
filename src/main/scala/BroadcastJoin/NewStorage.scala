@@ -1,4 +1,4 @@
-package dstream
+package BroadcastJoin
 
 import org.apache.spark.SparkContext
 import org.apache.spark.broadcast.Broadcast

@@ -1,8 +1,8 @@
-package dstream
+package CartesianJoin
 
-import org.apache.spark.{Partition, SparkContext, TaskContext}
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.{Partition, SparkContext, TaskContext}
+import scala.language.implicitConversions
 import scala.reflect.ClassTag
 
 class ThetaJoinPartition(
@@ -43,7 +43,7 @@ class ThetaJoinRDD [T: ClassTag, U: ClassTag](sc: SparkContext, var rdd1 : RDD[T
 
 class ThetaJoin[T: ClassTag](rdd: RDD[T]) extends Serializable {
   def thetaJoin[U: ClassTag](otherRdd: RDD[U], joinPredicate: (T, U) => Boolean): ThetaJoinRDD[T, U] = {
-    new ThetaJoinRDD(SparkSession.getActiveSession.get.sparkContext, rdd, otherRdd, joinPredicate)
+    new ThetaJoinRDD(rdd.sparkContext, rdd, otherRdd, joinPredicate)
   }
 }
 
