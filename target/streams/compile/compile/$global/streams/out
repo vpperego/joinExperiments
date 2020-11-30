@@ -1,6 +1,0 @@
-[0m[[0m[31merror[0m] [0m[0m/Users/vinicius/IdeaProjects/joinGermany/joinExperiments/src/main/scala/dstream/TpcHQ3.scala:72:52: type mismatch;[0m
-[0m[[0m[31merror[0m] [0m[0m found   : (((((dstream.Customer, dstream.Order), Long), Long), (dstream.LineItem, Long))) => Boolean[0m
-[0m[[0m[31merror[0m] [0m[0m required: (((((dstream.Customer, dstream.Order), Long, Long), Long), (dstream.LineItem, Long))) => Boolean[0m
-[0m[[0m[31merror[0m] [0m[0m    lineItemStorage.joinAsRight(probedIntermediate,lineItemJoinPredicate,intermediateStorage.storeSize)[0m
-[0m[[0m[31merror[0m] [0m[0m                                                   ^[0m
-[0m[[0m[31merror[0m] [0m[0mone error found[0m
