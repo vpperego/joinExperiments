@@ -2,10 +2,10 @@ package BroadcastJoin
 
 
 import main.startup.{config, spark}
-
 import org.apache.spark.rdd.RDD
 import org.apache.spark.streaming.{Minutes, Seconds, StreamingContext}
 import org.apache.spark.streaming.dstream.DStream
+import util.DStreamUtils
 
 
 object WindowJoin {

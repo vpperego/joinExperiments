@@ -1,8 +1,8 @@
 package CartesianJoin
 
-import BroadcastJoin.DStreamUtils
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.streaming.{Minutes, Seconds, StreamingContext}
+import util.DStreamUtils
 
 class KafkaTwoRelationsJoin {
   val sc = SparkSession.getActiveSession.get.sparkContext

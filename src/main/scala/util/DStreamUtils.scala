@@ -1,4 +1,4 @@
-package BroadcastJoin
+package util
 
 import main.startup.config
 import org.apache.kafka.common.serialization.StringDeserializer

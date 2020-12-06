@@ -1,12 +1,12 @@
 package CartesianJoin
 
-import main.startup.{config, spark}
-import org.apache.log4j.{Level, Logger}
+import main.startup.{config, configBroadcast, spark}
+import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 import org.apache.spark.streaming.dstream.DStream
 import org.apache.spark.streaming.{Minutes, Seconds, StreamingContext}
-import CartesianJoin.ThetaJoinStorage
-import BroadcastJoin.DStreamUtils
-import model._
+import util._
+
+import java.util.Properties
 
 object TpchQ3 {
   val sc = spark.sparkContext;
@@ -34,25 +34,41 @@ object TpchQ3 {
       (LineItem(fields(0).toInt,fields(2).toInt), System.currentTimeMillis())
     }
 
-  //  val storage_R = new ThetaJoinStorage[(Int, Long)](sc)
   val customerStorage = new ThetaJoinStorage[(Customer, Long)](sc)
   val orderStorage = new ThetaJoinStorage[(Order, Long)](sc)
   val lineItemStorage = new ThetaJoinStorage[(LineItem, Long)](sc)
-  val intermediateStorage = new ThetaJoinStorage[((Customer, Order), Long, Long)](sc)
+  val intermediateStorage = new ThetaJoinStorage[(((Customer, Long), (Order, Long)), Long)](sc)
 
   val probedCustomer = customerStorage.store(customer)
-  val probedOrder = orderStorage.store(order)
+  val probedOrder: DStream[(Order, Long)] = orderStorage.store(order)
   val probedLineItem  = lineItemStorage.store(lineItem)
 
-  val customerJoinPredicate = (pair:((Customer, Long),(Order, Long))) => pair._1._1.custKey == pair._2._1.custKey
-  val orderJoinPredicate = (pair:((Customer, Long),(Order, Long))) => pair._1._1.custKey == pair._2._1.custKey
-  val lineItemJoinPredicate = (pair:( (((Customer, Order), Long, Long), Long),(LineItem, Long))) => pair._1._1._1._2.orderKey == pair._2._1.orderKey
-//  val intermediateJoinPredicate = (pair:( (((Customer, Order), Long, Long), Long),(LineItem, Long))) => pair._1._1._1._2.orderKey == pair._2._1.orderKey
+  val customerOrderPredicate = (customer_row:(Customer, Long), order_row: (Order, Long)) => customer_row._1.custKey == order_row._1.custKey
+  val intermediateLineItemPredicate = (intermediate_row: (((Customer, Long), (Order, Long)), Long), line_item_row: (LineItem, Long)) => intermediate_row._1._2._1.orderKey == line_item_row._1.orderKey
 
 
-  val customerJoinResult = customerStorage.join(probedOrder,customerJoinPredicate)
-  val orderJoinResult = orderStorage.joinAsRight(probedCustomer,orderJoinPredicate)
-  val result = customerJoinResult.union(orderJoinResult).map (row => (row, System.currentTimeMillis()))
+  val customerJoinResult = customerStorage.join(probedOrder, customerOrderPredicate)
+  val orderJoinResult = orderStorage.joinAsRight(probedCustomer, customerOrderPredicate)
+  val intermediateResult: DStream[(((Customer, Long), (Order, Long)), Long)] = customerJoinResult.union(orderJoinResult).map (row => (row, System.currentTimeMillis()))
 
-  intermediateStorage.store(result)
+  val probedIntermediate = intermediateStorage.store(intermediateResult)
+
+  val intermediateStorageJoinResult = intermediateStorage.join(probedLineItem, intermediateLineItemPredicate)
+  val lineItemJoinResult = lineItemStorage.joinAsRight(probedIntermediate, intermediateLineItemPredicate)
+
+  intermediateStorageJoinResult
+    .union(lineItemJoinResult)
+    .foreachRDD{ outputRDD =>
+      val props = new Properties()
+      props.put("bootstrap.servers", configBroadcast.value("kafkaServer"))
+      props.put("client.id", "kafkaProducer")
+      props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
+      props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
+      val producer = new KafkaProducer[String, String](props)
+      outputRDD.foreach{outputRow =>
+        val data = new ProducerRecord[String, String](configBroadcast.value("kafkaTopicOutput"), outputRow.toString(), "foo")
+        producer.send(data)
+      }
+      producer.close()
+    }
 }

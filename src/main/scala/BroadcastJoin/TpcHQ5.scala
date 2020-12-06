@@ -1,11 +1,10 @@
 package BroadcastJoin
 
-import java.sql.Date
-
 import main.startup.{config, spark}
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.streaming.dstream.DStream
 import org.apache.spark.streaming.{Seconds, StreamingContext}
+import util.DStreamUtils
 
 case class Supplier(suppKey: Int, nationKey: Int)
 case class Nation(nationKey: Int, regionKey: Int)

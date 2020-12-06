@@ -4,10 +4,8 @@ import main.startup.{config, spark}
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.streaming.dstream.DStream
 import org.apache.spark.streaming.{Minutes, Seconds, StreamingContext}
+import util._
 
-case class Customer(custKey: Int)
-case class Order(orderKey: Int,custKey: Int)
-case class LineItem(orderKey: Int,suppKey: Int)
 
 object TpcHQ3 {
   Logger.getLogger("org").setLevel(Level.OFF)
